@@ -1,0 +1,1 @@
+# Secrets Checker Skeleton

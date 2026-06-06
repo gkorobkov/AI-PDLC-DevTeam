@@ -1,0 +1,10 @@
+Business Idea:
+{business_idea}
+
+Product Context:
+{product_context}
+
+Constraints:
+{constraints}
+
+Analyze this requirement and return the structured JSON object.

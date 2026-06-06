@@ -1,0 +1,2735 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<script>
+// ╔══════════════════════════════════════════════════════════╗
+// ║ ── VERSION ──  (grep: APP_VERSION for build increment)   ║
+// ╚══════════════════════════════════════════════════════════╝
+const APP_VERSION = '0.1.23';
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║                   CONFIGURABLE DEFAULTS                  ║
+// ╚══════════════════════════════════════════════════════════╝
+
+// Default debug panel state for new users: "expanded" | "collapsed" | "hidden"
+const CFG_DEBUG_DEFAULT_MODE = 'collapsed';
+
+// Initial suggestion chips shown before first message
+const CFG_INITIAL_SUGGESTIONS = ['Что ты умеешь?', 'Расскажи о себе', 'Расскажи про Москву'];
+
+// Max webhook URL entries kept in history dropdown
+const CFG_WEBHOOK_HISTORY_MAX = 20;
+
+// Request timeout for webhook POST (milliseconds)
+const CFG_REQUEST_TIMEOUT_MS = 10 * 60 * 1000; // 5 minutes
+
+// How long the "Undo delete" popup stays visible (milliseconds)
+const CFG_UNDO_TIMEOUT_MS = 10 * 1000; // 10 seconds
+
+// Show "Check" button in webhook history dropdown
+const CFG_SHOW_CHECK_BTN = false;
+</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #12151d;
+    --surface: #1a1e2c;
+    --surface2: #222740;
+    --border: #303754;
+    --accent: #4fffb0;
+    --accent2: #00c8ff;
+    --accent-dim: rgba(79,255,176,0.12);
+    --text: #edf2ff;
+    --text-muted: #8898b8;
+    --user-bubble: #1c2b50;
+    --agent-bubble: #181e30;
+    --error: #ff4f6b;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-ui: 'Sora', sans-serif;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --panel-bg: #1a1f30;
+    --toggle-off: #323b58;
+    --shadow: rgba(0,0,0,0.4);
+  }
+
+  html[data-theme="light"] {
+    --bg: #eef1f9;
+    --surface: #ffffff;
+    --surface2: #f2f5fc;
+    --border: #c4cfea;
+    --accent: #00a86b;
+    --accent2: #0090c8;
+    --accent-dim: rgba(0,168,107,0.1);
+    --text: #1a2033;
+    --text-muted: #6b7a99;
+    --user-bubble: #d4e3ff;
+    --agent-bubble: #eef1f9;
+    --error: #d43030;
+    --panel-bg: #f5f7ff;
+    --toggle-off: #bcc9e4;
+    --shadow: rgba(0,0,0,0.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 0 14px;
+    height: 46px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    transition: background 0.3s, border-color 0.3s;
+  }
+
+  .logo-ring {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 8px rgba(79,255,176,0.3);
+    flex-shrink: 0;
+    color: var(--accent);
+    cursor: pointer;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    padding: 0;
+  }
+  .logo-ring:hover {
+    box-shadow: 0 0 16px rgba(79,255,176,0.6);
+    border-color: var(--accent);
+  }
+  .logo-ring.active { box-shadow: 0 0 16px rgba(79,255,176,0.6); }
+  .logo-ring svg { width: 13px; height: 13px; stroke: var(--accent); }
+
+  .header-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .header-title .header-version {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 6px;
+    opacity: 0.8;
+  }
+
+  #webhook-url {
+    flex: 1;
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 20px 4px 9px;
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    min-width: 0;
+  }
+  #webhook-url::placeholder { color: var(--accent2); opacity: 0.75; }
+  #webhook-url:focus { border-color: var(--accent2); color: var(--text); box-shadow: 0 0 0 2px rgba(0,200,255,0.15); }
+  #webhook-url.has-value { color: #00c8ff; font-weight: 500; }
+  #webhook-url.has-value:focus { border-color: rgba(79,255,176,0.55); box-shadow: 0 0 0 2px rgba(79,255,176,0.1); }
+
+  #session-id-box {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: #00c8ff;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 9px;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .cfg-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .cfg-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--text-muted); }
+
+  .icon-btn {
+    width: 28px; height: 28px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .icon-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+  .icon-btn svg { width: 14px; height: 14px; }
+
+  /* Language quick button (header) */
+  .lang-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 0 8px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .lang-btn:hover { border-color: var(--accent2); color: var(--accent2); background: rgba(0,200,255,0.08); }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background 0.4s, box-shadow 0.4s;
+  }
+  .status-dot.online   { background: var(--accent);  box-shadow: 0 0 6px var(--accent); }
+  .status-dot.warn     { background: #f0a500;         box-shadow: 0 0 6px #f0a500; }
+  .status-dot.error    { background: var(--error);    box-shadow: 0 0 6px var(--error); }
+  .status-dot.thinking { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: pulse 1s infinite; }
+
+  #btn-clear:hover { border-color: var(--error) !important; color: var(--error) !important; background: rgba(255,79,107,0.07) !important; }
+
+  #btn-new-session { border-color: transparent; background: transparent; opacity: 0.72; }
+  #btn-new-session:hover { border-color: transparent !important; background: transparent !important; color: var(--accent); opacity: 1; }
+  #btn-new-session svg { width: 20px; height: 20px; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── DRAWER OVERLAY ── */
+  #drawer-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0);
+    z-index: 40;
+    pointer-events: none;
+    transition: background 0.3s;
+  }
+  #drawer-overlay.visible {
+    background: rgba(0,0,0,0.52);
+    pointer-events: all;
+  }
+
+  /* ── SIDE DRAWER ── */
+  #drawer {
+    position: fixed;
+    top: 0; left: 0;
+    width: 300px; height: 100%;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s, border-color 0.3s;
+    overflow-y: auto;
+  }
+  #drawer::-webkit-scrollbar { width: 3px; }
+  #drawer::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  #drawer.open { transform: translateX(0); }
+
+  .drawer-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .drawer-logo {
+    display: flex; align-items: center; gap: 9px;
+  }
+  .drawer-logo-ring {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 7px rgba(79,255,176,0.28);
+    flex-shrink: 0;
+  }
+  .drawer-logo-ring svg { width: 11px; height: 11px; stroke: var(--accent); }
+  .drawer-logo-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .drawer-close {
+    width: 26px; height: 26px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.2s, color 0.2s;
+    flex-shrink: 0;
+  }
+  .drawer-close:hover { border-color: var(--error); color: var(--error); }
+  .drawer-close svg { width: 12px; height: 12px; }
+
+  .drawer-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .drawer-section:last-child { border-bottom: none; }
+
+  .drawer-section-title {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  /* Setting row inside drawer */
+  .d-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .d-setting-row:last-child { margin-bottom: 0; }
+  .d-setting-label {
+    font-size: 13px;
+    color: var(--text);
+    font-family: var(--font-ui);
+    cursor: default;
+  }
+  .d-setting-label small {
+    display: block;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-top: 1px;
+  }
+
+  /* Toggle switch */
+  .switch { position: relative; display: inline-block; width: 34px; height: 19px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: var(--toggle-off); border-radius: 19px;
+    transition: background 0.2s;
+  }
+  .slider::before {
+    content: ''; position: absolute;
+    height: 13px; width: 13px;
+    left: 3px; top: 3px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  }
+  .switch input:checked + .slider { background: var(--accent); }
+  .switch input:checked + .slider::before { transform: translateX(15px); }
+
+  /* Segmented control (lang / theme) */
+  .seg-ctrl {
+    display: flex;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .seg-btn {
+    flex: 1;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+    white-space: nowrap;
+  }
+  .seg-btn.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  .seg-btn + .seg-btn {
+    border-left: 1px solid var(--border);
+  }
+
+  /* About section */
+  .about-version {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(79,255,176,0.3);
+    border-radius: 20px;
+    padding: 2px 10px;
+    margin-bottom: 10px;
+  }
+  .about-desc {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .about-meta {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    opacity: 0.65;
+  }
+  .about-meta a { color: var(--accent2); text-decoration: none; }
+  .about-meta a:hover { text-decoration: underline; }
+
+  /* Legal links */
+  .drawer-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.2s;
+  }
+  .drawer-link:last-child { border-bottom: none; padding-bottom: 0; }
+  .drawer-link:hover { color: var(--accent); }
+  .drawer-link svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); }
+  .drawer-link:hover svg { color: var(--accent); }
+  .drawer-link-arrow {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+  .drawer-link:hover .drawer-link-arrow { transform: translateX(3px); }
+
+  /* ── MESSAGES ── */
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-behavior: smooth;
+    position: relative; z-index: 1;
+  }
+  #messages::-webkit-scrollbar { width: 4px; }
+  #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  #msg-spacer { flex: 1; }
+
+  .msg-row { display:flex; gap:10px; animation:fadeIn 0.2s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
+  .msg-row.user { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0; margin-top: 2px;
+  }
+  .avatar.agent { background:var(--surface2); border:1px solid var(--border); }
+  .avatar.user  { background:var(--user-bubble); border:1px solid var(--border); }
+
+  .bubble-wrap { display:flex; flex-direction:column; max-width:74%; }
+  .msg-row.user .bubble-wrap { align-items:flex-end; }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    line-height: 1.72;
+    word-break: break-word;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .msg-row.agent .bubble {
+    background: var(--agent-bubble);
+    border: 1px solid var(--border);
+    border-radius: 4px var(--radius) var(--radius) var(--radius);
+    position: relative;
+  }
+  .bubble-copy-btn {
+    position: absolute;
+    top: 7px; right: 9px;
+    background: none; border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    opacity: 1;
+    padding: 2px; line-height: 1;
+  }
+  .bubble-copy-btn:hover { color: var(--accent2); }
+  .bubble-copy-btn svg { width: 13px; height: 13px; }
+  .msg-row.user .bubble {
+    background: var(--user-bubble);
+    border: 1px solid var(--border);
+    border-radius: var(--radius) 4px var(--radius) var(--radius);
+  }
+
+  .bubble-meta {
+    font-size: 10px; color:var(--text-muted);
+    font-family:var(--font-mono); margin-top:3px; padding:0 2px;
+  }
+
+  /* ── Telegram-like HTML rendering ── */
+  .bubble b, .bubble strong { font-weight: 600; }
+  .bubble i, .bubble em    { font-style: italic; color: #a8b8d8; }
+  html[data-theme="light"] .bubble i,
+  html[data-theme="light"] .bubble em { color: var(--text-muted); }
+  .bubble u { text-decoration: underline; text-decoration-color: var(--accent); }
+  .bubble code {
+    background: rgba(255,255,255,0.08);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--accent2);
+  }
+  html[data-theme="light"] .bubble code { background: rgba(0,0,0,0.06); }
+  .bubble pre {
+    background: rgba(0,0,0,0.35);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    overflow-x: auto;
+    margin: 6px 0;
+    color: var(--accent2);
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  html[data-theme="light"] .bubble pre { background: rgba(0,0,0,0.05); }
+
+  /* ── DEBUG BLOCK ── */
+  .debug-block-wrap {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+  .debug-block {
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--surface2);
+    color: var(--text-muted);
+    max-width: 100%;
+    overflow: hidden;
+    transition: border-color 0.18s;
+  }
+  .debug-block[open] {
+    border-radius: 20px 20px 12px 12px;
+  }
+  .debug-block summary .dbg-icon { color: var(--accent2); }
+  .debug-block[open] summary .dbg-icon { opacity: 1; width: 14px; height: 14px; }
+  .debug-block:not([open]) summary .dbg-icon { opacity: 0.7; width: 11px; height: 11px; }
+  .debug-block summary {
+    cursor: pointer;
+    padding: 5px 13px;
+    background: transparent;
+    color: var(--text-muted);
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .debug-block summary::-webkit-details-marker { display: none; }
+  .debug-block summary .dbg-chevron {
+    font-size: 10px;
+    opacity: 0.5;
+    font-family: var(--font-mono);
+    transition: transform 0.15s;
+    display: inline-block;
+  }
+  .debug-block[open] summary .dbg-chevron { transform: rotate(90deg); }
+  .debug-block summary .dbg-icon { flex-shrink: 0; transition: opacity 0.15s, width 0.15s, height 0.15s; }
+  .debug-block summary:hover { color: var(--accent2); }
+  .debug-block[open] summary { color: var(--accent2); }
+  .debug-block summary .dbg-copy {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .debug-block summary .dbg-copy:hover { color: var(--accent2); }
+  .debug-block summary .dbg-copy svg { width: 11px; height: 11px; }
+  .debug-block pre {
+    margin: 0;
+    padding: 8px 13px 10px;
+    background: rgba(0,0,0,0.2);
+    color: #7ac1d4;
+    white-space: pre-wrap;
+    word-break: break-all;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 12px 12px;
+    font-size: 11px;
+  }
+  html[data-theme="light"] .debug-block pre { background: rgba(0,0,0,0.04); }
+
+  /* copy button always visible on agent messages */
+  .msg-row.agent .resend-btn { opacity: 1; }
+  .bubble .plain { white-space: pre-wrap; }
+  .bubble a { color: var(--accent2); text-decoration: underline; text-underline-offset: 2px; }
+  .bubble a:hover { opacity: 0.8; }
+
+  /* typing */
+  .typing-bubble { display:flex; align-items:center; gap:5px; padding:14px 16px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); animation:blink 1.2s infinite; }
+  .dot:nth-child(2){ animation-delay:.2s; background:var(--accent2); }
+  .dot:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,80%,100%{opacity:.2;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
+
+  /* Error bubble */
+  .bubble.error {
+    background: rgba(255,79,107,0.07);
+    border-left: 3px solid var(--error) !important;
+    border-color: rgba(255,79,107,0.3);
+    font-family: var(--font-mono);
+    padding: 10px 14px;
+  }
+  html[data-theme="light"] .bubble.error {
+    background: rgba(212,48,48,0.06);
+    border-color: rgba(212,48,48,0.25);
+  }
+  .error-header {
+    display: flex; align-items: center; gap: 5px;
+    color: var(--error); font-weight: 600; font-size: 11px;
+    margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .error-header svg { flex-shrink: 0; }
+  .error-msg { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+  .error-hint {
+    margin-top: 7px; padding-top: 7px;
+    border-top: 1px solid rgba(255,79,107,0.18);
+    font-size: 11px; color: var(--text-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .error-hint-switch {
+    display: inline-flex; gap: 4px; margin-left: 2px;
+  }
+  .error-hint-switch button {
+    padding: 1px 7px; border-radius: 10px; font-size: 10px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--accent2); cursor: pointer; font-family: var(--font-mono);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .error-hint-switch button:hover { background: rgba(0,200,255,0.1); border-color: var(--accent2); }
+
+  .welcome { text-align:center; padding:40px 20px; opacity:.85; }
+  .welcome-icon { font-size:38px; margin-bottom:12px; }
+  .welcome h2 { font-size:16px; font-weight:600; margin-bottom:4px; }
+  .welcome p { font-size:12px; color:var(--text-muted); font-family:var(--font-mono); }
+
+  /* ── SUGGESTIONS ── */
+  .suggestions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    justify-content: flex-end;
+    padding: 2px 40px 6px 0;
+    animation: fadeIn 0.2s ease;
+  }
+  .suggestion-chip {
+    padding: 5px 13px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, color 0.18s;
+    white-space: nowrap;
+  }
+  .suggestion-chip:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(0,200,255,0.07);
+  }
+
+  /* ── INPUT ── */
+  #input-area {
+    padding: 10px 14px 14px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: flex-end;
+    flex-shrink: 0; position: relative; z-index: 1;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  #msg-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    resize: none; outline: none;
+    min-height: 44px; max-height: 140px;
+    transition: border-color .2s, box-shadow .2s, background 0.3s;
+    line-height: 1.5;
+  }
+  #msg-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,255,176,0.07); }
+  #msg-input::placeholder { color:var(--text-muted); }
+
+  #send-btn {
+    width:44px; height:44px; border-radius:50%;
+    background:var(--accent); border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    transition:transform .15s, box-shadow .2s, opacity .2s;
+    box-shadow:0 0 14px rgba(79,255,176,0.28);
+  }
+  #send-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(79,255,176,0.48); }
+  #send-btn:active { transform:scale(0.95); }
+  #send-btn:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+  #send-btn svg { width:18px; height:18px; }
+
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+    background-size:40px 40px; pointer-events:none; z-index:0;
+  }
+  html[data-theme="light"] body::before {
+    background-image:linear-gradient(rgba(0,0,0,.035) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(0,0,0,.035) 1px,transparent 1px);
+  }
+
+  #toast {
+    position: fixed;
+    top: 56px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    background: var(--surface2); border: 1px solid var(--accent);
+    color: var(--accent); font-family: var(--font-mono); font-size: 11px;
+    padding: 10px 14px; border-radius: 20px; white-space: nowrap;
+    opacity: 0; transition: opacity .2s, transform .2s; z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 10px;
+    justify-content: center; min-width: 220px; max-width: 340px;
+    pointer-events: auto;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.warn {
+    border-color: rgba(255,185,60,0.45);
+    color: rgba(255,195,80,0.95);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,185,60,0.1);
+    white-space: normal;
+    max-width: 460px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  #toast button {
+    border: 1px solid rgba(79,255,176,0.35);
+    background: rgba(79,255,176,0.08);
+    color: var(--accent);
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  #toast button:hover {
+    background: rgba(79,255,176,0.14);
+  }
+  #toast button.toast-close {
+    border: none; background: none; padding: 0 2px;
+    font-size: 15px; line-height: 1; opacity: 0.5;
+    margin-left: auto;
+  }
+  #toast button.toast-close:hover { background: none; opacity: 1; }
+  #toast .toast-countdown {
+    opacity: 0.4; font-size: 10px; min-width: 12px; text-align: center;
+  }
+
+  /* Drawer input (webhook on mobile) */
+  .drawer-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .drawer-input::placeholder { color: var(--accent2); opacity: 0.7; }
+  .drawer-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,255,176,0.1); }
+  .drawer-input.has-value { color: var(--accent); border-color: rgba(79,255,176,0.5); }
+
+  .drawer-row-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .drawer-row-btns .cfg-btn { flex: 1; text-align: center; }
+
+  /* ── RESPONSIVE ── */
+
+  /* Connection section: visible on mobile only */
+  #drawer-connection { display: none; }
+
+  @media (max-width: 640px) {
+    /* Keep webhook URL, hide secondary controls */
+    #session-id-box  { display: none; }
+    #btn-new-session { display: none; }
+    #btn-clear       { display: none; }
+    .header-title    { font-size: 11px; }
+
+    /* Show connection (session controls) in drawer */
+    #drawer-connection { display: block; }
+
+    /* Compact message bar */
+    #input-area {
+      padding: 6px 10px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    #msg-input {
+      min-height: 38px;
+      padding: 8px 12px;
+      font-size: 16px; /* prevents iOS zoom on focus */
+      border-radius: 20px;
+    }
+    #send-btn { width: 38px; height: 38px; }
+    #send-btn svg { width: 15px; height: 15px; }
+  }
+
+  @media (max-width: 400px) {
+    header { gap: 5px; padding: 0 8px; }
+    .header-title { display: none; }
+    #webhook-url { font-size: 10px; }
+  }
+
+  .resend-btn {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    width: 26px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+  }
+  .msg-row .resend-btn { color: var(--text-muted); }
+  .resend-btn:hover { background: rgba(79,255,176,0.1); color: var(--accent2); }
+  .resend-btn.del-btn:hover { background: rgba(255,80,80,0.12); color: var(--error); }
+  .resend-btn svg { width: 14px; height: 14px; }
+
+  @media (pointer: coarse) {
+    .resend-btn { width: 36px; height: 36px; }
+    .resend-btn svg { width: 18px; height: 18px; }
+  }
+
+  /* ── CONSENT ── */
+  #consent-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,12,22,0.45);
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+    z-index: 490;
+    transition: opacity 0.3s;
+  }
+  #consent-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  #consent-banner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(460px, 88vw);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 28px 24px;
+    z-index: 500;
+    box-shadow: 0 16px 56px rgba(0,0,0,0.55);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  #consent-banner.hidden {
+    opacity: 0;
+    transform: translate(-50%, -47%);
+    pointer-events: none;
+  }
+  #consent-icon {
+    font-size: 32px;
+    line-height: 1;
+  }
+  #consent-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  #consent-text {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    line-height: 1.7;
+  }
+  #consent-text a { color: var(--accent2); text-decoration: underline; }
+  #consent-text a:hover { color: var(--accent); }
+  #consent-btn {
+    background: var(--accent);
+    border: none;
+    color: #0d0f14;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 28px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.2s, box-shadow 0.2s;
+    box-shadow: 0 0 16px rgba(79,255,176,0.25);
+  }
+  #consent-btn:hover { opacity: 0.88; box-shadow: 0 0 24px rgba(79,255,176,0.4); }
+
+  /* ── WEBHOOK HISTORY DROPDOWN ── */
+  #webhook-wrap {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  #url-input-wrap {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  #url-input-wrap .status-dot {
+    position: absolute;
+    right: 7px;
+    z-index: 2;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+  #btn-debug-toggle { color: var(--text-muted); transition: color 0.2s, border-color 0.2s, box-shadow 0.2s; }
+  #btn-debug-toggle.mode-expanded {
+    color: var(--accent2);
+    border-color: var(--accent2);
+  }
+  #btn-debug-toggle.mode-collapsed { color: var(--accent2); border-color: var(--border); box-shadow: none; }
+  #btn-debug-toggle.mode-hidden    { color: var(--text-muted); border-color: var(--border); box-shadow: none; opacity: 0.5; }
+  #btn-debug-toggle svg { width: 18px; height: 18px; }
+
+  #webhook-hist-btn {
+    width: 20px; height: 20px;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+    padding: 0;
+  }
+  #webhook-hist-btn:hover { color: var(--accent2); border-color: var(--accent2); background: rgba(0,200,255,0.07); }
+  #webhook-hist-btn svg { width: 11px; height: 11px; transition: transform 0.2s; }
+  #webhook-hist-btn.active { color: var(--accent2); border-color: var(--accent2); background: rgba(0,200,255,0.1); }
+  #webhook-hist-btn.active svg { transform: rotate(180deg); }
+
+  #webhook-hist-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 28px var(--shadow);
+    z-index: 300;
+    overflow: hidden;
+    min-width: 260px;
+  }
+  #webhook-hist-dropdown.open { display: block; }
+
+  .wh-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .wh-head-title {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .wh-clear-btn {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    background: transparent;
+    border: none;
+    color: var(--error);
+    cursor: pointer;
+    opacity: 0.65;
+    padding: 0;
+    transition: opacity 0.2s;
+  }
+  .wh-clear-btn:hover { opacity: 1; }
+
+  .wh-empty {
+    padding: 14px 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    text-align: center;
+  }
+
+  .wh-list { overflow-y: auto; max-height: 280px; }
+  .wh-list::-webkit-scrollbar { width: 3px; }
+  .wh-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .wh-item {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.13s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .wh-item:last-child { border-bottom: none; }
+  .wh-item:hover { background: var(--surface2); }
+
+  .wh-item-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .wh-item-url {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .wh-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .wh-badge {
+    font-size: 8px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .wh-badge.wh-test {
+    background: rgba(136,152,184,0.1);
+    color: var(--text-muted);
+    border: 1px solid rgba(136,152,184,0.3);
+  }
+  .wh-badge.wh-prod {
+    background: rgba(0,200,255,0.12);
+    color: var(--accent2);
+    border: 1px solid rgba(0,200,255,0.25);
+  }
+
+  #url-type-toggle {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+  }
+  .url-env-btn {
+    font-size: 8px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 2px 5px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid rgba(136,152,184,0.2);
+    opacity: 0.35;
+  }
+  .url-env-btn:hover { opacity: 0.65; }
+  #url-btn-prod.active {
+    background: rgba(0,200,255,0.12);
+    color: var(--accent2);
+    border-color: rgba(0,200,255,0.25);
+    opacity: 1;
+  }
+  #url-btn-test.active {
+    background: rgba(136,152,184,0.1);
+    color: var(--text-muted);
+    border-color: rgba(136,152,184,0.3);
+    opacity: 1;
+  }
+
+  #method-toggle {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    margin-right: 4px;
+  }
+  .method-btn {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    padding: 2px 5px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid rgba(136,152,184,0.2);
+    opacity: 0.35;
+  }
+  .method-btn:hover { opacity: 0.65; }
+  #method-btn-get.active {
+    background: rgba(59,130,246,0.15);
+    color: #60a5fa;
+    border-color: rgba(59,130,246,0.4);
+    opacity: 1;
+  }
+  #method-btn-post.active {
+    background: rgba(79,255,176,0.12);
+    color: var(--accent);
+    border-color: rgba(79,255,176,0.3);
+    opacity: 1;
+  }
+
+  .wh-time {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .wh-sdot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: none;
+  }
+  .wh-sdot.vis { display: block; }
+  .wh-sdot.ok   { background: var(--accent);  box-shadow: 0 0 5px var(--accent); }
+  .wh-sdot.warn { background: #f0a500;         box-shadow: 0 0 5px #f0a500; }
+  .wh-sdot.err  { background: var(--error);    box-shadow: 0 0 5px var(--error); }
+
+  .wh-actions {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 3px;
+    align-self: stretch;
+    width: 84px;
+  }
+  .wh-actions-row {
+    display: flex;
+    flex: 1;
+    gap: 3px;
+    align-items: center;
+  }
+  .wh-actions-row:last-child { justify-content: flex-end; }
+  .wh-check-btn, .wh-copy-btn, .wh-share-btn, .wh-del-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .wh-check-btn {
+    flex: 1;
+    height: 26px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    padding: 0 8px;
+  }
+  .wh-check-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .wh-copy-btn, .wh-share-btn, .wh-del-btn { width: 26px; height: 26px; padding: 0; flex-shrink: 0; }
+  .wh-copy-btn svg, .wh-share-btn svg, .wh-del-btn svg { width: 14px; height: 14px; }
+  .wh-check-btn:hover  { border-color: var(--accent); color: var(--accent); }
+  .wh-check-btn.checking { opacity: 0.4; pointer-events: none; }
+  .wh-copy-btn:hover   { border-color: var(--accent2); color: var(--accent2); }
+  .wh-copy-btn.copied  { border-color: var(--accent2); color: var(--accent2); }
+  .wh-share-btn:hover  { border-color: var(--accent2); color: var(--accent2); }
+  .wh-share-btn.copied { border-color: var(--accent2); color: var(--accent2); }
+  .wh-del-btn:hover    { border-color: var(--error); color: var(--error); }
+  .wh-del-btn:hover { color: var(--error); }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="logo-ring" id="burger-btn" onclick="toggleDrawer()" title="Menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+  </button>
+  <span class="header-title" id="app-title">AI Agent</span>
+  <div id="webhook-wrap">
+    <div id="method-toggle">
+      <button class="method-btn" id="method-btn-get" onclick="setMethod('get')" title="Send as GET request">GET</button>
+      <button class="method-btn" id="method-btn-post" onclick="setMethod('post')" title="Send as POST request">POST</button>
+    </div>
+    <div id="url-type-toggle">
+      <button class="url-env-btn" id="url-btn-prod" onclick="setUrlType('prod')" title="Switch to PROD webhook">PROD</button>
+      <button class="url-env-btn" id="url-btn-test" onclick="setUrlType('test')" title="Switch to TEST webhook">TEST</button>
+    </div>
+    <div id="url-input-wrap">
+      <div class="status-dot" id="status-dot"></div>
+      <input id="webhook-url" type="text" placeholder="https://your-n8n.com/webhook/…  · Paste Webhook URL to start" />
+    </div>
+    <button id="webhook-hist-btn" onclick="toggleHistoryDropdown()" title="URL history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+    <div id="webhook-hist-dropdown"></div>
+  </div>
+  <div id="session-id-box" onclick="copySession()" style="cursor:pointer">🔑 <span id="sid-display"></span></div>
+  <button class="icon-btn" id="btn-debug-toggle" title="Toggle debug info" onclick="onToggleDebug()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="9" y1="5" x2="6.5" y2="2.5"/>
+      <line x1="15" y1="5" x2="17.5" y2="2.5"/>
+      <circle cx="12" cy="6" r="2"/>
+      <rect x="8" y="8" width="8" height="10" rx="4"/>
+      <line x1="8" y1="11" x2="5" y2="10"/>
+      <line x1="8" y1="14" x2="5" y2="14"/>
+      <line x1="8" y1="17" x2="5.5" y2="18"/>
+      <line x1="16" y1="11" x2="19" y2="10"/>
+      <line x1="16" y1="14" x2="19" y2="14"/>
+      <line x1="16" y1="17" x2="18.5" y2="18"/>
+    </svg>
+  </button>
+  <button class="icon-btn" id="btn-new-session" onclick="resetSession()" data-i18n-title="btnNewSessionTitle" title="Start a new session (new conversation ID)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 12a10 10 0 1 1-2.22-6.32"/>
+      <polyline points="22 3 22 9 16 9"/>
+      <circle cx="9.5" cy="13.5" r="3"/>
+      <path d="M12.5 13.5h7"/>
+      <path d="M16 13.5v3"/>
+      <path d="M19.5 13.5v2"/>
+    </svg>
+  </button>
+  <button class="icon-btn" id="btn-clear" onclick="clearChat()" data-i18n-title="btnClearTitle" title="Clear ALL chat messages">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6"/><path d="M14 11v6"/>
+      <path d="M9 6V4h6v2"/>
+    </svg>
+  </button>
+
+  <!-- Theme toggle (right) -->
+  <button class="icon-btn" id="theme-btn" onclick="applyTheme(theme === 'dark' ? 'light' : 'dark')" data-i18n-title="titleTheme" title="Toggle theme">
+    <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+
+  <!-- Language toggle (right) -->
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()" data-i18n-title="titleLang" title="Switch language">
+    <span id="lang-label">EN</span>
+  </button>
+</header>
+
+<!-- Overlay -->
+<div id="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- Side drawer -->
+<div id="drawer">
+
+  <div class="drawer-header">
+    <button class="drawer-close" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <div class="drawer-logo">
+      <div class="drawer-logo-ring">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <span class="drawer-logo-title" id="drawer-title">Menu</span>
+    </div>
+  </div>
+
+  <!-- Connection (mobile only) -->
+  <div class="drawer-section" id="drawer-connection">
+    <div class="drawer-section-title" data-i18n="drawerConnection">Connection</div>
+    <div class="d-setting-label" style="margin-bottom:6px" data-i18n="drawerWebhook">Webhook URL</div>
+    <input id="webhook-url-mobile" class="drawer-input" type="text"
+      placeholder="https://your-n8n.com/webhook/…" />
+    <div class="drawer-row-btns">
+      <button class="cfg-btn" onclick="resetSession()" data-i18n="btnNewSession">New Session</button>
+      <button class="cfg-btn" onclick="clearChat();closeDrawer()" data-i18n="btnClear">Clear</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="drawer-section">
+    <div class="drawer-section-title" data-i18n="drawerSettings">Settings</div>
+
+    <div class="d-setting-row">
+      <div class="d-setting-label" data-i18n="drawerLang">Language</div>
+      <div class="seg-ctrl">
+        <button class="seg-btn" id="seg-ru" onclick="applyLang('ru')">RU</button>
+        <button class="seg-btn" id="seg-en" onclick="applyLang('en')">EN</button>
+      </div>
+    </div>
+
+    <div class="d-setting-row">
+      <div class="d-setting-label" data-i18n="drawerTheme">Theme</div>
+      <div class="seg-ctrl">
+        <button class="seg-btn" id="seg-dark" onclick="applyTheme('dark')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:11px;height:11px;vertical-align:-1px;margin-right:4px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span data-i18n="drawerThemeDark">Dark</span>
+        </button>
+        <button class="seg-btn" id="seg-light" onclick="applyTheme('light')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:11px;height:11px;vertical-align:-1px;margin-right:4px"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><span data-i18n="drawerThemeLight">Light</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="d-setting-row">
+      <div class="d-setting-label">
+        <span data-i18n="settingShowErrors">Show errors in chat</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggle-errors" checked onchange="onToggleErrors(this.checked)">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="d-setting-row">
+      <div class="d-setting-label">
+        <span data-i18n="settingShowDebug">Show debug info</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggle-debug" onchange="onToggleDebugDrawer(this.checked)">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- About -->
+  <div class="drawer-section">
+    <div class="drawer-section-title" data-i18n="drawerAbout">About</div>
+    <span class="about-version" id="about-version">v0.1.5</span>
+    <p class="about-desc" data-i18n="drawerAboutDesc">
+      Web interface for AI agents built on n8n workflows. Connect any webhook — chat instantly.
+    </p>
+    <div class="about-meta">
+      © 2026 &nbsp;·&nbsp; <a href="mailto:gkorobkov@gmail.com">gkorobkov@gmail.com</a>
+    </div>
+  </div>
+
+  <!-- Legal -->
+  <div class="drawer-section">
+    <div class="drawer-section-title" data-i18n="drawerLegal">Legal</div>
+
+    <a href="privacy-policy.html" class="drawer-link" target="_blank">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span data-i18n="drawerPrivacy">Privacy Policy</span>
+      <span class="drawer-link-arrow">›</span>
+    </a>
+
+    <a href="terms.html" class="drawer-link" target="_blank">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      <span data-i18n="drawerTerms">Terms of Use</span>
+      <span class="drawer-link-arrow">›</span>
+    </a>
+
+    <a href="../LICENSE" class="drawer-link" target="_blank">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span data-i18n="drawerLicense">License</span>
+      <span class="drawer-link-arrow">›</span>
+    </a>
+  </div>
+
+</div>
+
+<div id="messages">
+  <div id="msg-spacer"></div>
+  <div class="welcome" id="welcome-msg">
+    <div class="welcome-icon">🤖</div>
+    <h2 data-i18n="welcomeTitle">AI Agent</h2>
+    <p data-i18n="welcomeSub">Вставь Webhook URL и начинай</p>
+  </div>
+</div>
+
+<div id="input-area">
+  <textarea id="msg-input" rows="1" data-i18n-placeholder="inputPlaceholder"
+    placeholder="Сообщение… (Enter — отправить, Shift+Enter — перенос)"></textarea>
+  <button id="send-btn" onclick="sendMessage()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#0d0f14" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13"/>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+    </svg>
+  </button>
+</div>
+
+<div id="toast"></div>
+
+<div id="consent-overlay"></div>
+<div id="consent-banner">
+  <div id="consent-icon">🤖</div>
+  <div id="consent-title">AI Agent Chat</div>
+  <div id="consent-text"></div>
+  <button id="consent-btn" onclick="acceptConsent()"></button>
+</div>
+
+<script>
+// ── UTILS ──
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // fallback for file:// or non-HTTPS contexts
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0';
+  document.body.appendChild(el);
+  el.select();
+  try { document.execCommand('copy'); } catch(_) {}
+  document.body.removeChild(el);
+  return Promise.resolve();
+}
+
+// ── I18N ──
+const i18n = {
+  en: {
+    btnNewSession:      'New Session',
+    btnNewSessionTitle: 'Start a new session (new conversation ID)',
+    btnClear:           'Clear',
+    btnClearTitle:      'Clear ALL chat messages',
+    drawerSettings:     'Settings',
+    drawerLang:         'Language',
+    drawerTheme:        'Theme',
+    drawerThemeDark:    'Dark',
+    drawerThemeLight:   'Light',
+    settingShowErrors:  'Show errors in chat',
+    settingShowDebug:   'Show debug info',
+    toastDebugOn:       'Debug info visible',
+    toastDebugOff:      'Debug info hidden',
+    debugLabel:         'Debug',
+    drawerAbout:        'About',
+    drawerAboutDesc:    'Web interface for AI agents built on n8n workflows. Connect any webhook — chat instantly.',
+    drawerLegal:        'Legal',
+    drawerPrivacy:      'Privacy Policy',
+    drawerTerms:        'Terms of Use',
+    drawerLicense:      'License',
+    titleTheme:         'Toggle theme',
+    titleLang:          'Switch language',
+    drawerConnection:   'Connection',
+    drawerWebhook:      'Webhook URL',
+    drawerTitle:        'Menu',
+    welcomeTitle:       'AI Agent',
+    welcomeSub:         'Paste Webhook URL to start',
+    inputPlaceholder:   'Message… (Enter to send, Shift+Enter for newline)',
+    toastLight:         '☀️ Light theme',
+    toastDark:          '🌙 Dark theme',
+    toastNewSession:    'New session started',
+    toastCopied:        '🔑 Session ID copied',
+    toastCleared:       '🗑 Chat cleared',
+    toastNoWebhook:     '⚠️ Enter Webhook URL',
+    toastErrorsOn:      'Errors shown in chat',
+    toastErrorsOff:     'Errors hidden',
+    toastEdited:        'Editing message...',
+    toastResent:        'Resending message...',
+    toastDeleted:       'Message deleted',
+    toastUndone:        'Undo successful',
+    btnUndo:            'Undo',
+    toastCopiedMsg:     '📋 Copied',
+    consentText:        'By using this application you agree to our',
+    consentPrivacy:     'Privacy Policy',
+    consentTerms:       'Terms of Use',
+    consentCookie:      'and the use of localStorage to store your preferences.',
+    consentBtn:         'Accept & Continue',
+    btnEdit:            'Edit',
+    btnResend:          'Resend',
+    btnCopy:            'Copy',
+    btnDelete:          'Delete',
+    errHttp:            'HTTP Error',
+    errNetwork:         'Network Error',
+    errParse:           'Parse Error',
+    errEmpty:           'Empty Response',
+    errTimeout:         'Timeout',
+    errParseMsg:        'Failed to parse server response',
+    errEmptyMsg:        'Agent returned an empty reply',
+    errAgent:           'Agent Error',
+    errTimeoutMsg:      'No response in 6 minutes. The agent may still be running — try again.',
+    chatClearedTitle:   'Chat Cleared',
+    chatClearedSub:     'Start a new conversation',
+  },
+  ru: {
+    btnNewSession:      'Новая сессия',
+    btnNewSessionTitle: 'Начать новую сессию (новый ID разговора)',
+    btnClear:           'Очистить',
+    btnClearTitle:      'Очистить ВСЕ сообщения чата',
+    drawerSettings:     'Настройки',
+    drawerLang:         'Язык',
+    drawerTheme:        'Тема',
+    drawerThemeDark:    'Тёмная',
+    drawerThemeLight:   'Светлая',
+    settingShowErrors:  'Показывать ошибки в чате',
+    settingShowDebug:   'Показывать debug-инфо',
+    toastDebugOn:       'Debug-инфо видна в чате',
+    toastDebugOff:      'Debug-инфо скрыта',
+    debugLabel:         'Debug',
+    drawerAbout:        'О приложении',
+    drawerAboutDesc:    'Веб-интерфейс для AI-агентов на базе n8n. Подключи любой webhook — начни чат мгновенно.',
+    drawerLegal:        'Правовая информация',
+    drawerPrivacy:      'Политика конфиденциальности',
+    drawerTerms:        'Условия использования',
+    drawerLicense:      'Лицензия',
+    titleTheme:         'Сменить тему',
+    titleLang:          'Сменить язык',
+    drawerConnection:   'Подключение',
+    drawerWebhook:      'Webhook URL',
+    drawerTitle:        'Меню',
+    welcomeTitle:       'AI Agent',
+    welcomeSub:         'Вставь Webhook URL и начинай',
+    inputPlaceholder:   'Сообщение… (Enter — отправить, Shift+Enter — перенос)',
+    toastLight:         '☀️ Светлая тема',
+    toastDark:          '🌙 Тёмная тема',
+    toastNewSession:    'Новая сессия',
+    toastCopied:        '🔑 Session ID скопирован',
+    toastCleared:       '🗑 Чат очищен',
+    toastNoWebhook:     '⚠️ Укажи Webhook URL',
+    toastErrorsOn:      'Ошибки видны в чате',
+    toastErrorsOff:     'Ошибки скрыты',
+    toastEdited:        'Редактирование сообщения...',
+    toastResent:        'Повторная отправка...',
+    toastDeleted:       'Сообщение удалено',
+    toastUndone:        'Отмена выполнена',
+    btnUndo:            'Отменить',
+    toastCopiedMsg:     '📋 Скопировано',
+    consentText:        'Используя это приложение, вы соглашаетесь с',
+    consentPrivacy:     'Политикой конфиденциальности',
+    consentTerms:       'Условиями использования',
+    consentCookie:      'и использованием localStorage для хранения данных.',
+    consentBtn:         'Принять и продолжить',
+    btnEdit:            'Редактировать',
+    btnResend:          'Отправить снова',
+    btnCopy:            'Копировать',
+    btnDelete:          'Удалить',
+    errHttp:            'HTTP ошибка',
+    errNetwork:         'Ошибка сети',
+    errParse:           'Ошибка парсинга',
+    errEmpty:           'Пустой ответ',
+    errTimeout:         'Таймаут',
+    errParseMsg:        'Не удалось разобрать ответ сервера',
+    errEmptyMsg:        'Агент вернул пустой ответ',
+    errAgent:           'Ошибка агента',
+    errTimeoutMsg:      'Ответ не получен за 6 минут. Агент может всё ещё работать — попробуй ещё раз.',
+    chatClearedTitle:   'Чат очищен',
+    chatClearedSub:     'Начни новый разговор',
+  }
+};
+
+let lang = localStorage.getItem('n8n_lang')
+  || (navigator.language.startsWith('ru') ? 'ru' : 'en');
+
+function t(key) { return (i18n[lang] || i18n.en)[key] || key; }
+
+function applyLang(l, silent) {
+  lang = l;
+  document.documentElement.lang = l;
+  localStorage.setItem('n8n_lang', l);
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  // Sync header label
+  document.getElementById('lang-label').textContent = l === 'en' ? 'RU' : 'EN';
+  // Sync segmented lang control in drawer
+  document.getElementById('seg-ru').classList.toggle('active', l === 'ru');
+  document.getElementById('seg-en').classList.toggle('active', l === 'en');
+  if (!silent) toast(l === 'en' ? '🌐 English' : '🌐 Русский');
+  if (typeof renderConsentBanner === 'function') renderConsentBanner();
+}
+
+function toggleLang() { applyLang(lang === 'ru' ? 'en' : 'ru'); }
+
+// ── THEME ──
+let theme = localStorage.getItem('n8n_theme') || 'dark';
+
+function applyTheme(newTheme, silent) {
+  theme = newTheme;
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('n8n_theme', theme);
+  // Sync header icon
+  const icon = document.getElementById('theme-icon');
+  if (icon) {
+    icon.innerHTML = theme === 'dark'
+      ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+      : '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+  }
+  // Sync segmented theme control in drawer
+  document.getElementById('seg-dark').classList.toggle('active', theme === 'dark');
+  document.getElementById('seg-light').classList.toggle('active', theme === 'light');
+  if (!silent) toast(theme === 'light' ? t('toastLight') : t('toastDark'));
+}
+
+// ── INIT ──
+applyLang(lang, true);
+applyTheme(theme, true);
+document.getElementById('app-title').innerHTML = `AI Agent <span class="header-version">v${APP_VERSION}</span>`;
+document.getElementById('about-version').textContent = `v${APP_VERSION}`;
+
+// ── SETTINGS ──
+let showErrors = localStorage.getItem('n8n_show_errors') !== 'false';
+document.getElementById('toggle-errors').checked = showErrors;
+
+function onToggleErrors(val) {
+  showErrors = val;
+  localStorage.setItem('n8n_show_errors', val);
+  toast(val ? t('toastErrorsOn') : t('toastErrorsOff'));
+}
+
+// debugMode: 'expanded' | 'collapsed' | 'hidden'
+const DEBUG_MODES = ['expanded', 'collapsed', 'hidden'];
+const _BUG_BODY =
+  `<line x1="9" y1="5" x2="6.5" y2="2.5"/><line x1="15" y1="5" x2="17.5" y2="2.5"/>` +
+  `<circle cx="12" cy="6" r="2"/>` +
+  `<rect x="8" y="8" width="8" height="10" rx="4"/>` +
+  `<line x1="8" y1="11" x2="5" y2="10"/><line x1="8" y1="14" x2="5" y2="14"/><line x1="8" y1="17" x2="5.5" y2="18"/>` +
+  `<line x1="16" y1="11" x2="19" y2="10"/><line x1="16" y1="14" x2="19" y2="14"/><line x1="16" y1="17" x2="18.5" y2="18"/>`;
+const SVG_DEBUG_BUG_LG =
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px">${_BUG_BODY}</svg>`;
+const SVG_DEBUG_BUG_SM =
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">${_BUG_BODY}</svg>`;
+const SVG_DEBUG_OFF =
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px">` +
+    _BUG_BODY +
+    `<line x1="3" y1="21" x2="21" y2="3" stroke-width="2" stroke="currentColor"/>` +
+  `</svg>`;
+
+let debugMode = localStorage.getItem('n8n_debug_mode') || CFG_DEBUG_DEFAULT_MODE;
+document.getElementById('toggle-debug').checked = debugMode !== 'hidden';
+
+function applyDebugMode(mode) {
+  debugMode = mode;
+  localStorage.setItem('n8n_debug_mode', mode);
+  document.getElementById('toggle-debug').checked = mode !== 'hidden';
+  const btn = document.getElementById('btn-debug-toggle');
+  btn.className = btn.className.replace(/\bmode-\w+/g, '').trim();
+  if (mode === 'expanded') {
+    btn.innerHTML = SVG_DEBUG_BUG_LG;
+    btn.classList.add('mode-expanded');
+  } else if (mode === 'collapsed') {
+    btn.innerHTML = SVG_DEBUG_BUG_SM;
+    btn.classList.add('mode-collapsed');
+  } else {
+    btn.innerHTML = SVG_DEBUG_OFF;
+    btn.classList.add('mode-hidden');
+  }
+  document.querySelectorAll('.debug-block-wrap').forEach(wrap => {
+    wrap.dataset.mode = mode;
+    wrap.style.display = mode === 'hidden' ? 'none' : '';
+    const details = wrap.querySelector('.debug-block');
+    if (details) details.open = mode === 'expanded';
+  });
+}
+
+function onToggleDebug() {
+  const next = DEBUG_MODES[(DEBUG_MODES.indexOf(debugMode) + 1) % DEBUG_MODES.length];
+  applyDebugMode(next);
+  const labels = { expanded: t('toastDebugOn'), collapsed: 'Debug свёрнут', hidden: t('toastDebugOff') };
+  toast(labels[next]);
+}
+
+// backward compat: migrate old boolean setting
+if (!localStorage.getItem('n8n_debug_mode') && localStorage.getItem('n8n_show_debug') === 'false') {
+  debugMode = 'hidden';
+}
+applyDebugMode(debugMode);
+
+// keep drawer toggle in sync
+function onToggleDebugDrawer(checked) {
+  applyDebugMode(checked ? 'expanded' : 'hidden');
+}
+
+// ── DRAWER ──
+let drawerOpen = false;
+function toggleDrawer() { drawerOpen ? closeDrawer() : openDrawer(); }
+function openDrawer() {
+  drawerOpen = true;
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-overlay').classList.add('visible');
+  document.getElementById('burger-btn').classList.add('active');
+}
+function closeDrawer() {
+  drawerOpen = false;
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('visible');
+  document.getElementById('burger-btn').classList.remove('active');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerOpen) closeDrawer(); });
+
+// ── SESSION ──
+let sessionId = localStorage.getItem('n8n_session') || generateSessionId();
+let webhookUrl = localStorage.getItem('n8n_webhook') || '';
+let httpMethod = localStorage.getItem('n8n_method') || 'post';
+let isThinking = false;
+const INITIAL_SUGGESTIONS = CFG_INITIAL_SUGGESTIONS;
+
+// Override webhookUrl from ?webhookurl= query param, then strip it from the address bar
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const paramUrl = params.get('webhookurl');
+  if (paramUrl) {
+    webhookUrl = paramUrl;
+    localStorage.setItem('n8n_webhook', webhookUrl);
+    params.delete('webhookurl');
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash;
+    history.replaceState(null, '', newUrl);
+  }
+})();
+
+function generateSessionId() {
+  const ts = String(Date.now()).split('').reverse().join('');
+  const id = 'web_' + ts + '_' + Math.random().toString(36).slice(2,8);
+  localStorage.setItem('n8n_session', id);
+  return id;
+}
+function resetSession() {
+  sessionId = generateSessionId();
+  updateSessionDisplay();
+  toast(t('toastNewSession'));
+}
+function updateSessionDisplay() {
+  document.getElementById('sid-display').textContent = sessionId.slice(0,14) + '…';
+  document.getElementById('session-id-box').title = 'Session ID: ' + sessionId;
+}
+function setMethod(m) {
+  httpMethod = m;
+  localStorage.setItem('n8n_method', m);
+  updateMethodUI();
+}
+function updateMethodUI() {
+  document.getElementById('method-btn-get').classList.toggle('active', httpMethod === 'get');
+  document.getElementById('method-btn-post').classList.toggle('active', httpMethod === 'post');
+}
+
+const urlInput = document.getElementById('webhook-url');
+const urlInputMobile = document.getElementById('webhook-url-mobile');
+urlInput.value = webhookUrl;
+urlInputMobile.value = webhookUrl;
+syncWebhookStyle();
+
+let _urlCheckTimer = null;
+function scheduleUrlCheck(url, delay = 500) {
+  clearTimeout(_urlCheckTimer);
+  if (!url) return;
+  _urlCheckTimer = setTimeout(() => startUrlCheck(url), delay);
+}
+
+urlInput.addEventListener('input', () => {
+  webhookUrl = urlInput.value.trim();
+  urlInputMobile.value = webhookUrl;
+  localStorage.setItem('n8n_webhook', webhookUrl);
+  urlDotState = '';
+  updateStatus();
+  syncWebhookStyle();
+  scheduleUrlCheck(webhookUrl);
+});
+urlInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === 'Tab') { saveUrlToHistory(webhookUrl); scheduleUrlCheck(webhookUrl, 0); }
+});
+urlInput.addEventListener('blur', () => {
+  if (webhookUrl) { saveUrlToHistory(webhookUrl); scheduleUrlCheck(webhookUrl, 0); }
+});
+
+urlInputMobile.addEventListener('input', () => {
+  webhookUrl = urlInputMobile.value.trim();
+  urlInput.value = webhookUrl;
+  localStorage.setItem('n8n_webhook', webhookUrl);
+  urlDotState = '';
+  updateStatus();
+  syncWebhookStyle();
+  scheduleUrlCheck(webhookUrl);
+});
+urlInputMobile.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === 'Tab') { saveUrlToHistory(webhookUrl); scheduleUrlCheck(webhookUrl, 0); }
+});
+urlInputMobile.addEventListener('blur', () => {
+  if (webhookUrl) { saveUrlToHistory(webhookUrl); scheduleUrlCheck(webhookUrl, 0); }
+});
+
+function syncWebhookStyle() {
+  urlInput.classList.toggle('has-value', !!webhookUrl);
+  urlInputMobile.classList.toggle('has-value', !!webhookUrl);
+  updateUrlTypeToggle();
+}
+
+function updateUrlTypeToggle() {
+  const wrap = document.getElementById('url-type-toggle');
+  if (!wrap) return;
+  wrap.style.display = 'flex';
+  const hasWebhook = /\/webhook(-test)?\//.test(webhookUrl);
+  const type = hasWebhook ? getUrlType(webhookUrl) : '';
+  document.getElementById('url-btn-prod').classList.toggle('active', type === 'prod');
+  document.getElementById('url-btn-test').classList.toggle('active', type === 'test');
+}
+
+function setUrlType(type) {
+  if (!webhookUrl) {
+    showPopup('No webhook URL entered yet.', { type: 'warn', duration: 2500 });
+    return;
+  }
+  const hasPattern = /\/webhook(-test)?\//.test(webhookUrl);
+  if (!hasPattern) {
+    showPopup('Cannot switch: URL does not contain /webhook/ or /webhook-test/ segment.', { type: 'warn', duration: 3500 });
+    return;
+  }
+  const current = getUrlType(webhookUrl);
+  if (current === type) return;
+  let newUrl;
+  if (type === 'test') {
+    newUrl = webhookUrl.replace('/webhook/', '/webhook-test/');
+  } else {
+    newUrl = webhookUrl.replace('/webhook-test/', '/webhook/');
+  }
+  webhookUrl = newUrl;
+  urlInput.value = newUrl;
+  urlInputMobile.value = newUrl;
+  localStorage.setItem('n8n_webhook', newUrl);
+  syncWebhookStyle();
+  saveUrlToHistory(webhookUrl);
+  startUrlCheck(webhookUrl);
+  showPopup(`Switched to ${type.toUpperCase()} webhook.`, { duration: 1800 });
+}
+
+let urlDotState = ''; // 'online' | 'warn' | 'error' | ''
+
+function updateStatus() {
+  if (isThinking) return;
+  const dot = document.getElementById('status-dot');
+  if (!webhookUrl) { dot.className = 'status-dot'; urlDotState = ''; return; }
+  dot.className = 'status-dot ' + (urlDotState || 'error');
+}
+
+async function probeUrlStatus(url) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 8000);
+  try {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return 'online';
+    const isLocal = /^https?:\/\/(localhost|127\.)/.test(url);
+    if (isLocal) {
+      const res = await fetch(url, { method: 'GET', signal: ac.signal });
+      return res.ok || res.status === 404 ? 'online' : 'warn';
+    }
+    // Cross-origin: n8n adds Access-Control-Allow-Origin only for POST preflights.
+    // GET/HEAD/OPTIONS all return 500 or 204 without CORS headers → browser blocks reads.
+    // mode:'no-cors' skips CORS checks → any HTTP response resolves (opaque), network errors throw.
+    await fetch(url, { method: 'GET', mode: 'no-cors', signal: ac.signal });
+    return 'online'; // server responded (opaque — can't read status, but server is alive)
+  } catch(e) {
+    console.warn('[probeUrlStatus]', e.name, e.message, url);
+    return 'error';
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function startUrlCheck(url) {
+  if (!url || isThinking) return;
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    urlDotState = 'online'; updateStatus(); return;
+  }
+  urlDotState = 'error';
+  updateStatus();
+  urlDotState = await probeUrlStatus(url);
+  if (!isThinking) updateStatus();
+}
+updateSessionDisplay();
+updateMethodUI();
+updateStatus();
+if (webhookUrl) startUrlCheck(webhookUrl);
+showSuggestions(INITIAL_SUGGESTIONS);
+
+// ── WEBHOOK URL HISTORY ──
+const WEBHOOK_HISTORY_MAX = CFG_WEBHOOK_HISTORY_MAX;
+
+let webhookHistory = (() => {
+  try { return JSON.parse(localStorage.getItem('n8n_wh_history') || '[]'); }
+  catch { return []; }
+})();
+
+function saveUrlToHistory(url) {
+  if (!url || !url.startsWith('http')) return;
+  webhookHistory = webhookHistory.filter(e => e.url !== url);
+  webhookHistory.unshift({ url, ts: Date.now() });
+  if (webhookHistory.length > WEBHOOK_HISTORY_MAX) webhookHistory.length = WEBHOOK_HISTORY_MAX;
+  localStorage.setItem('n8n_wh_history', JSON.stringify(webhookHistory));
+}
+
+function getUrlType(url) { return /test/i.test(url) ? 'test' : 'prod'; }
+
+function fmtHistTs(ts) {
+  const d = new Date(ts);
+  return d.toLocaleString([], { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+let histDropOpen = false;
+
+function toggleHistoryDropdown() { histDropOpen ? closeHistoryDropdown() : openHistoryDropdown(); }
+
+function openHistoryDropdown() {
+  renderHistoryDropdown();
+  document.getElementById('webhook-hist-dropdown').classList.add('open');
+  document.getElementById('webhook-hist-btn').classList.add('active');
+  histDropOpen = true;
+}
+
+function closeHistoryDropdown() {
+  document.getElementById('webhook-hist-dropdown').classList.remove('open');
+  document.getElementById('webhook-hist-btn').classList.remove('active');
+  histDropOpen = false;
+}
+
+function clearWebhookHistory() {
+  webhookHistory = [];
+  localStorage.removeItem('n8n_wh_history');
+  renderHistoryDropdown();
+}
+
+function selectHistoryUrl(url) {
+  webhookUrl = url;
+  urlInput.value = url;
+  urlInputMobile.value = url;
+  localStorage.setItem('n8n_webhook', url);
+  saveUrlToHistory(url);
+  syncWebhookStyle();
+  urlDotState = '';
+  updateStatus();
+  closeHistoryDropdown();
+  startUrlCheck(url);
+}
+
+function renderHistoryDropdown() {
+  const root = document.getElementById('webhook-hist-dropdown');
+  root.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'wh-head';
+  const title = document.createElement('span');
+  title.className = 'wh-head-title';
+  title.textContent = 'URL History';
+  head.appendChild(title);
+  if (webhookHistory.length > 0) {
+    const clr = document.createElement('button');
+    clr.className = 'wh-clear-btn';
+    clr.textContent = 'Clear all';
+    clr.onclick = (e) => { e.stopPropagation(); clearWebhookHistory(); };
+    head.appendChild(clr);
+  }
+  root.appendChild(head);
+
+  if (webhookHistory.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'wh-empty';
+    empty.textContent = 'No webhook URLs in history yet';
+    root.appendChild(empty);
+    return;
+  }
+
+  const list = document.createElement('div');
+  list.className = 'wh-list';
+  webhookHistory.forEach(entry => {
+    const type = getUrlType(entry.url);
+    const item = document.createElement('div');
+    item.className = 'wh-item';
+
+    const urlEl = document.createElement('div');
+    urlEl.className = 'wh-item-url';
+    urlEl.textContent = entry.url;
+    urlEl.title = entry.url;
+
+    const meta = document.createElement('div');
+    meta.className = 'wh-item-meta';
+
+    const badge = document.createElement('span');
+    badge.className = `wh-badge wh-${type}`;
+    badge.textContent = type.toUpperCase();
+
+    const time = document.createElement('span');
+    time.className = 'wh-time';
+    time.textContent = fmtHistTs(entry.ts);
+
+    const dot = document.createElement('span');
+    dot.className = 'wh-sdot';
+
+    const SVG_LIGHTNING = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+    const SVG_COPY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const SVG_SHARE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
+    const SVG_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+    const chkBtn = document.createElement('button');
+    chkBtn.className = 'wh-check-btn';
+    chkBtn.innerHTML = SVG_LIGHTNING + 'Check';
+    chkBtn.title = 'Check if this webhook is reachable';
+    chkBtn.onclick = (e) => { e.stopPropagation(); checkWebhookStatus(entry.url, dot, chkBtn); };
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'wh-copy-btn';
+    copyBtn.innerHTML = SVG_COPY_ICON;
+    copyBtn.title = 'Copy webhook URL';
+    copyBtn.onclick = (e) => {
+      e.stopPropagation();
+      copyText(entry.url).then(() => {
+        copyBtn.classList.add('copied');
+        setTimeout(() => copyBtn.classList.remove('copied'), 1800);
+      });
+    };
+
+    const shareBtn = document.createElement('button');
+    shareBtn.className = 'wh-share-btn';
+    shareBtn.innerHTML = SVG_SHARE_ICON;
+    shareBtn.title = 'Copy shareable page link';
+    shareBtn.onclick = (e) => {
+      e.stopPropagation();
+      const base = (window.location.origin + window.location.pathname).replace(/\/$/, '/');
+      copyText(base + '?webhookurl=' + entry.url).then(() => {
+        shareBtn.classList.add('copied');
+        setTimeout(() => shareBtn.classList.remove('copied'), 1800);
+      });
+    };
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'wh-del-btn';
+    delBtn.innerHTML = SVG_TRASH;
+    delBtn.title = 'Remove from history';
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      webhookHistory = webhookHistory.filter(h => h.url !== entry.url);
+      localStorage.setItem('n8n_wh_history', JSON.stringify(webhookHistory));
+      renderHistoryDropdown();
+    };
+
+    const row1 = document.createElement('div');
+    row1.className = 'wh-actions-row';
+    row1.appendChild(chkBtn);
+
+    const row2 = document.createElement('div');
+    row2.className = 'wh-actions-row';
+    row2.append(copyBtn, shareBtn, delBtn);
+
+    const actions = document.createElement('div');
+    actions.className = 'wh-actions';
+    if (CFG_SHOW_CHECK_BTN) actions.append(row1);
+    actions.append(row2);
+
+    meta.append(badge, time, dot);
+
+    const left = document.createElement('div');
+    left.className = 'wh-item-left';
+    left.append(urlEl, meta);
+
+    item.append(left, actions);
+    item.addEventListener('click', () => selectHistoryUrl(entry.url));
+    list.appendChild(item);
+  });
+  root.appendChild(list);
+}
+
+async function checkWebhookStatus(url, dotEl, btnEl) {
+  dotEl.className = 'wh-sdot vis err';
+  dotEl.title = 'Checking…';
+  if (btnEl) btnEl.classList.add('checking');
+
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 8000);
+
+  try {
+    const isLocal = /^https?:\/\/(localhost|127\.)/.test(url);
+    if (isLocal) {
+      const res = await fetch(url, { method: 'GET', signal: ac.signal });
+      dotEl.className = 'wh-sdot vis ' + (res.ok || res.status === 404 ? 'ok' : 'warn');
+      dotEl.title = res.ok || res.status === 404 ? 'Webhook active' : `HTTP ${res.status}`;
+    } else {
+      // Cross-origin: n8n only sends CORS headers for POST preflights, not for any readable probe.
+      // no-cors: any HTTP response = server alive; network errors throw.
+      await fetch(url, { method: 'GET', mode: 'no-cors', signal: ac.signal });
+      dotEl.className = 'wh-sdot vis ok';
+      dotEl.title = 'Webhook server reachable';
+    }
+  } catch(e) {
+    console.warn('[checkWebhookStatus]', e.name, e.message, url);
+    dotEl.className = 'wh-sdot vis err';
+    dotEl.title = e.name === 'AbortError' ? 'Timeout (8 s)' : 'Not registered or unreachable';
+  } finally {
+    clearTimeout(t);
+    if (btnEl) btnEl.classList.remove('checking');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (histDropOpen && !document.getElementById('webhook-wrap')?.contains(e.target)) {
+    closeHistoryDropdown();
+  }
+});
+
+// ── RENDER ──
+const ALLOWED_TAGS = /^\/?(b|i|u|strong|em|small|code|pre)$/i;
+
+function renderAgentText(raw) {
+  if (!raw) return '';
+  if (!/<[a-z]/i.test(raw)) {
+    const escaped = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<span class="plain">${escaped}</span>`;
+  }
+  const clean = raw.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g, (match, tag) => {
+    if (tag.toLowerCase() === 'a') {
+      if (match.startsWith('</')) return '</a>';
+      const href = (match.match(/href\s*=\s*["']([^"']*)["']/i) || [])[1] || '';
+      if (!/^https?:\/\//i.test(href)) return '';
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">`;
+    }
+    return ALLOWED_TAGS.test(tag) ? match : '';
+  });
+  return clean.replace(/\n/g, '<br>');
+}
+
+// ── MESSAGES ──
+const messagesEl = document.getElementById('messages');
+const msgStore = [];
+
+function makeMsgMeta(role, text, row, bubble) {
+  const meta = document.createElement('div');
+  meta.className = 'bubble-meta';
+
+  const SVG_EDIT   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const SVG_RESEND = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>`;
+  const SVG_COPY   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+  const SVG_DELETE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+
+  function mkBtn(svg, title, cls, onclick) {
+    const b = document.createElement('button');
+    b.className = 'resend-btn ' + cls;
+    b.title = title;
+    b.innerHTML = svg;
+    b.onclick = onclick;
+    return b;
+  }
+
+  if (role === 'user') {
+    const idx = msgStore.push(text) - 1;
+    meta.appendChild(mkBtn(SVG_EDIT,   t('btnEdit'),   '',       () => { editMessage(idx); showPopup(t('toastEdited')); }));
+    meta.appendChild(mkBtn(SVG_RESEND, t('btnResend'), '',       () => { reSend(idx); showPopup(t('toastResent')); }));
+    meta.appendChild(mkBtn(SVG_DELETE, t('btnDelete'), 'del-btn',() => deleteMessage(row)));
+  } else {
+    meta.appendChild(mkBtn(SVG_DELETE, t('btnDelete'), 'del-btn',() => deleteMessage(row)));
+  }
+
+  const time = document.createElement('span');
+  time.textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  meta.appendChild(time);
+  return meta;
+}
+
+function appendMessage(role, text) {
+  document.getElementById('welcome-msg')?.remove();
+  const row = document.createElement('div');
+  row.className = `msg-row ${role}`;
+  const avatar = document.createElement('div');
+  avatar.className = `avatar ${role}`;
+  avatar.textContent = role === 'user' ? '👤' : '🤖';
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (role === 'agent') {
+    bubble.innerHTML = renderAgentText(text);
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'bubble-copy-btn';
+    copyBtn.title = t('btnCopy');
+    copyBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    copyBtn.onclick = () => {
+      const txt = bubble.innerText || bubble.textContent;
+      copyText(txt).then(() => toast(t('toastCopiedMsg')));
+    };
+    bubble.appendChild(copyBtn);
+  } else {
+    bubble.textContent = text;
+  }
+  wrap.appendChild(bubble);
+  wrap.appendChild(makeMsgMeta(role, text, row, bubble));
+  row.appendChild(avatar);
+  row.appendChild(wrap);
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return row;
+}
+
+function appendDebug(row, debugData) {
+  const wrap = row.querySelector('.bubble-wrap');
+  if (!wrap) return;
+  const content = typeof debugData === 'string'
+    ? debugData
+    : JSON.stringify(debugData, null, 2);
+
+  const details = document.createElement('details');
+  details.className = 'debug-block';
+  details.open = debugMode === 'expanded';
+
+  const SVG_BUG =
+    `<svg class="dbg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px">` +
+      `<line x1="9" y1="5" x2="6.5" y2="2.5"/><line x1="15" y1="5" x2="17.5" y2="2.5"/>` +
+      `<circle cx="12" cy="6" r="2"/>` +
+      `<rect x="8" y="8" width="8" height="10" rx="4"/>` +
+      `<line x1="8" y1="11" x2="5" y2="10"/><line x1="8" y1="14" x2="5" y2="14"/><line x1="8" y1="17" x2="5.5" y2="18"/>` +
+      `<line x1="16" y1="11" x2="19" y2="10"/><line x1="16" y1="14" x2="19" y2="14"/><line x1="16" y1="17" x2="18.5" y2="18"/>` +
+    `</svg>`;
+  const SVG_COPY =
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">` +
+      `<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>` +
+    `</svg>`;
+
+  const summary = document.createElement('summary');
+  summary.innerHTML =
+    `<span class="dbg-chevron">&gt;</span>` +
+    SVG_BUG +
+    `<span>${t('debugLabel')}</span>` +
+    `<button class="dbg-copy" title="Copy debug">${SVG_COPY}</button>`;
+  summary.querySelector('.dbg-copy').addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    copyText(content).then(() => toast('📋 Debug copied'));
+  });
+
+  const isJsonContent = typeof debugData !== 'string';
+  const body = document.createElement(isJsonContent ? 'pre' : 'div');
+  const DBG_STYLE = 'padding:8px 13px 10px;color:#7ac1d4;';
+  if (isJsonContent) {
+    body.textContent = content;
+    body.style.cssText = DBG_STYLE + 'font-size:11px;';
+  } else {
+    body.innerHTML = renderAgentText(content);
+    body.style.cssText = DBG_STYLE + 'font-size:13px;line-height:1.55;';
+  }
+  details.appendChild(summary);
+  details.appendChild(body);
+  const dbgWrap = document.createElement('div');
+  dbgWrap.className = 'debug-block-wrap';
+  dbgWrap.dataset.mode = debugMode;
+  if (debugMode === 'hidden') dbgWrap.style.display = 'none';
+  dbgWrap.appendChild(details);
+  wrap.insertBefore(dbgWrap, wrap.querySelector('.bubble-meta'));
+}
+
+function editMessage(idx) {
+  const text = msgStore[idx];
+  if (!text) return;
+  const input = document.getElementById('msg-input');
+  input.value = text;
+  resizeTextarea(input);
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
+function reSend(idx) {
+  if (isThinking) return;
+  const text = msgStore[idx];
+  if (!text) return;
+  const input = document.getElementById('msg-input');
+  input.value = text;
+  sendMessage();
+}
+
+function appendError(msg, labelKey, hint) {
+  if (!showErrors) return;
+  document.getElementById('welcome-msg')?.remove();
+  const row = document.createElement('div');
+  row.className = 'msg-row agent';
+  const av = document.createElement('div');
+  av.className = 'avatar agent'; av.textContent = '⚠️';
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap';
+  const b = document.createElement('div');
+  b.className = 'bubble error';
+  const safeMsg = msg.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const label = t(labelKey || 'errNetwork').replace(/</g,'&lt;');
+  b.innerHTML = `<div class="error-header">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    ${label}
+  </div>
+  <div class="error-msg">${safeMsg}</div>`;
+  if (hint) {
+    const hintEl = document.createElement('div');
+    hintEl.className = 'error-hint';
+    hintEl.innerHTML = `💡 ${hint.text}`;
+    if (hint.actions) {
+      const sw = document.createElement('span');
+      sw.className = 'error-hint-switch';
+      hint.actions.forEach(([label, fn]) => {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        btn.onclick = fn;
+        sw.appendChild(btn);
+      });
+      hintEl.appendChild(sw);
+    }
+    b.appendChild(hintEl);
+  }
+  wrap.appendChild(b);
+  wrap.appendChild(makeMsgMeta('agent', safeMsg, row, b));
+  row.appendChild(av); row.appendChild(wrap);
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function showTyping() {
+  const row = document.createElement('div');
+  row.className = 'msg-row agent'; row.id = 'typing-indicator';
+  const av = document.createElement('div');
+  av.className = 'avatar agent'; av.textContent = '🤖';
+  const b = document.createElement('div');
+  b.className = 'bubble typing-bubble';
+  b.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  row.appendChild(av); row.appendChild(b);
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function hideTyping() { document.getElementById('typing-indicator')?.remove(); }
+
+// ── SEND ──
+async function sendMessage() {
+  if (isThinking) return;
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!webhookUrl) { toast(t('toastNoWebhook')); urlInput.focus(); return; }
+  saveUrlToHistory(webhookUrl);
+
+  input.value = ''; resizeTextarea(input);
+  appendMessage('user', text);
+
+  isThinking = true;
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('status-dot').className = 'status-dot thinking';
+  showTyping();
+
+  const inlineJson = webhookUrl.trimStart().startsWith('{') ? webhookUrl.trim() : null;
+
+  if (inlineJson) {
+    try {
+      await new Promise(r => setTimeout(r, 300));
+      hideTyping();
+      let data;
+      try { data = JSON.parse(inlineJson); } catch(e) {
+        appendError('Inline JSON parse error: ' + e.message, 'errParse');
+        return;
+      }
+      if (Array.isArray(data)) data = data[0];
+      const reply = data?.message || data?.text || data?.output;
+      if (reply) {
+        const row = appendMessage('agent', reply);
+        showSuggestions(data.suggestions);
+        if (data.debug != null) appendDebug(row, data.debug);
+      } else {
+        appendError(t('errEmptyMsg'), 'errEmpty');
+      }
+      urlDotState = 'online';
+    } finally {
+      hideTyping();
+      isThinking = false;
+      document.getElementById('send-btn').disabled = false;
+      updateStatus();
+    }
+    return;
+  }
+
+  const abortCtrl = new AbortController();
+  const timeoutId = setTimeout(() => abortCtrl.abort(), CFG_REQUEST_TIMEOUT_MS);
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  try {
+    let res;
+    if (httpMethod === 'get') {
+      const params = new URLSearchParams({ sessionId, message: text,  });
+      const getUrl = webhookUrl + (webhookUrl.includes('?') ? '&' : '?') + params.toString();
+      res = await fetch(getUrl, {
+        method: 'GET',
+        signal: abortCtrl.signal
+      });
+    } else {
+      res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, sessionId }),
+        signal: abortCtrl.signal
+      });
+    }
+    clearTimeout(timeoutId);
+    hideTyping();
+
+    if (!res.ok) {
+      appendError(`HTTP ${res.status}: ${res.statusText}`, 'errHttp');
+      return;
+    }
+    urlDotState = 'online';
+
+    let data;
+    try {
+      const ct = res.headers.get('content-type') || '';
+      data = ct.includes('application/json') ? await res.json() : JSON.parse(await res.text());
+    } catch {
+      appendError(t('errParseMsg'), 'errParse');
+      return;
+    }
+
+    if (Array.isArray(data)) data = data[0];
+
+    if (data.error) {
+      appendError(String(data.error), 'errAgent');
+    } else {
+      const reply = data?.message || data?.text || data?.output;
+      if (reply) {
+        const row = appendMessage('agent', reply);
+        showSuggestions(data.suggestions);
+        if (data.debug != null) appendDebug(row, data.debug);
+      } else if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        const jsonStr = JSON.stringify(data, null, 2)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        appendMessage('agent', `<pre>${jsonStr}</pre>`);
+      } else {
+        appendError(t('errEmptyMsg'), 'errEmpty');
+      }
+    }
+
+  } catch(err) {
+    clearTimeout(timeoutId);
+    hideTyping();
+    const isTimeout = err.name === 'AbortError';
+    let networkHint;
+    if (!isTimeout && err.message === 'Failed to fetch' && /\/webhook(-test)?\//.test(webhookUrl)) {
+      const isProd = !/\/webhook-test\//.test(webhookUrl);
+      networkHint = {
+        text: isProd ? 'Возможно, нужен TEST webhook?' : 'Возможно, нужен PROD webhook?',
+        actions: isProd
+          ? [['→ TEST', () => setUrlType('test')]]
+          : [['→ PROD', () => setUrlType('prod')]]
+      };
+    }
+    appendError(isTimeout ? t('errTimeoutMsg') : err.message, isTimeout ? 'errTimeout' : 'errNetwork', networkHint);
+  } finally {
+    isThinking = false;
+    document.getElementById('send-btn').disabled = false;
+    updateStatus();
+  }
+
+}
+
+function clearChat(anchor) {
+  messagesEl.innerHTML = '';
+  const spacer = document.createElement('div');
+  spacer.id = 'msg-spacer';
+  messagesEl.appendChild(spacer);
+  const w = document.createElement('div');
+  w.className = 'welcome'; w.id = 'welcome-msg';
+  w.innerHTML = `<div class="welcome-icon">🤖</div>
+    <h2 data-i18n="chatClearedTitle">${t('chatClearedTitle')}</h2>
+    <p data-i18n="chatClearedSub">${t('chatClearedSub')}</p>`;
+  messagesEl.appendChild(w);
+  showSuggestions(INITIAL_SUGGESTIONS);
+  toast(t('toastCleared'));
+}
+
+// ── SUGGESTIONS ──
+
+function showSuggestions(chips) {
+  if (!Array.isArray(chips) || !chips.length) return;
+  const container = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'suggestions-row';
+  chips.forEach(label => {
+    const btn = document.createElement('button');
+    btn.className = 'suggestion-chip';
+    btn.textContent = label;
+    btn.onclick = () => sendSuggestion(label);
+    row.appendChild(btn);
+  });
+  container.appendChild(row);
+  row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideSuggestions() {}
+
+function sendSuggestion(text) {
+  const input = document.getElementById('msg-input');
+  input.value = text;
+  sendMessage();
+}
+
+const inputEl = document.getElementById('msg-input');
+inputEl.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} });
+inputEl.addEventListener('input', () => resizeTextarea(inputEl));
+function resizeTextarea(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,140)+'px'; }
+
+let pendingDeletion = null;
+
+function showPopup(message, options = {}) {
+  const el = document.getElementById('toast');
+  clearTimeout(el._t);
+  clearInterval(el._iv);
+  el.classList.remove('show');
+  el.innerHTML = '';
+
+  const text = document.createElement('span');
+  text.textContent = message;
+  el.appendChild(text);
+
+  if (options.countdown && options.duration) {
+    const cd = document.createElement('span');
+    cd.className = 'toast-countdown';
+    let secs = Math.ceil(options.duration / 1000);
+    cd.textContent = secs;
+    el.appendChild(cd);
+    el._iv = setInterval(() => {
+      secs--;
+      if (secs > 0) cd.textContent = secs;
+      else clearInterval(el._iv);
+    }, 1000);
+  }
+
+  if (options.actionLabel && typeof options.onAction === 'function') {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = options.actionLabel;
+    btn.onclick = () => { options.onAction(); hidePopup(); };
+    el.appendChild(btn);
+  }
+
+  if (options.closable) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'toast-close';
+    x.textContent = '×';
+    x.onclick = hidePopup;
+    el.appendChild(x);
+  }
+
+  el.classList.toggle('warn', options.type === 'warn');
+  void el.offsetHeight;
+  el.classList.add('show');
+  el._t = setTimeout(() => { hidePopup(); }, options.duration || 2200);
+}
+
+function toast(msg) {
+  showPopup(msg);
+}
+
+function hidePopup() {
+  const el = document.getElementById('toast');
+  clearTimeout(el._t);
+  clearInterval(el._iv);
+  el.classList.remove('show');
+}
+
+function deleteMessage(row) {
+  if (!row || !row.parentNode) return;
+  if (pendingDeletion && pendingDeletion.timeoutId) {
+    clearTimeout(pendingDeletion.timeoutId);
+    pendingDeletion = null;
+  }
+
+  const parent = row.parentNode;
+  const nextSibling = row.nextSibling;
+  row.remove();
+
+  pendingDeletion = {
+    row,
+    parent,
+    nextSibling,
+    timeoutId: setTimeout(() => {
+      pendingDeletion = null;
+      hidePopup();
+    }, CFG_UNDO_TIMEOUT_MS)
+  };
+
+  showPopup(t('toastDeleted'), {
+    actionLabel: t('btnUndo'),
+    onAction: undoDelete,
+    duration: CFG_UNDO_TIMEOUT_MS,
+    closable: true,
+    countdown: true,
+  });
+}
+
+function undoDelete() {
+  if (!pendingDeletion) return;
+  const { row, parent, nextSibling, timeoutId } = pendingDeletion;
+  clearTimeout(timeoutId);
+  pendingDeletion = null;
+  if (nextSibling) parent.insertBefore(row, nextSibling);
+  else parent.appendChild(row);
+  toast(t('toastUndone'));
+}
+
+function copySession() {
+  copyText(sessionId)
+    .then(() => toast(t('toastCopied')))
+    .catch(() => toast('🔑 ' + sessionId.slice(0,14) + '…'));
+}
+
+// ── CONSENT ──
+const CONSENT_CONTROLS = ['#webhook-url','#webhook-hist-btn','#msg-input','#send-btn',
+  '#btn-new-session','#btn-clear','#theme-btn','#lang-btn','#session-id-box','#burger-btn'];
+
+function setControlsLocked(locked) {
+  CONSENT_CONTROLS.forEach(sel => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    if (locked) {
+      el.setAttribute('disabled', '');
+      el.style.pointerEvents = 'none';
+    } else {
+      el.removeAttribute('disabled');
+      el.style.pointerEvents = '';
+    }
+  });
+}
+
+function renderConsentBanner() {
+  const textEl = document.getElementById('consent-text');
+  const btnEl  = document.getElementById('consent-btn');
+  textEl.innerHTML =
+    t('consentText') + ' ' +
+    `<a href="privacy-policy.html" target="_blank">${t('consentPrivacy')}</a>, ` +
+    `<a href="terms.html" target="_blank">${t('consentTerms')}</a> ` +
+    t('consentCookie');
+  btnEl.textContent = t('consentBtn');
+}
+
+function acceptConsent() {
+  localStorage.setItem('n8n_consent', '1');
+  document.getElementById('consent-banner').classList.add('hidden');
+  document.getElementById('consent-overlay').classList.add('hidden');
+  setControlsLocked(false);
+}
+
+(function initConsent() {
+  renderConsentBanner();
+  const accepted = localStorage.getItem('n8n_consent') === '1';
+  if (accepted) {
+    document.getElementById('consent-banner').classList.add('hidden');
+    document.getElementById('consent-overlay').classList.add('hidden');
+  } else {
+    setControlsLocked(true);
+  }
+})();
+</script>
+</body>
+</html>

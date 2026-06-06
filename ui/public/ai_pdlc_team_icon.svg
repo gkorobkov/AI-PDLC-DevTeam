@@ -1,0 +1,93 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" rx="80" fill="#12121f"/>
+  <circle cx="200" cy="200" r="95" fill="none" stroke="#2a2a4a" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <!-- center hex goal -->
+  <polygon points="200,148 232,166 232,202 200,220 168,202 168,166" fill="#6c63ff"/>
+  <polygon points="200,156 224,170 224,198 200,212 176,198 176,170" fill="#8b82ff" opacity="0.6"/>
+  <polyline points="188,185 197,194 215,176" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Agent 1 top blue -->
+  <g transform="translate(200,106)">
+    <line x1="0" y1="-14" x2="0" y2="-22" stroke="#4f8ef7" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-25" r="4" fill="#4f8ef7"/>
+    <rect x="-16" y="-12" width="32" height="26" rx="7" fill="#4f8ef7"/>
+    <circle cx="-6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="-6" cy="-2" r="1.8" fill="#4f8ef7"/>
+    <circle cx="6" cy="-2" r="1.8" fill="#4f8ef7"/>
+    <rect x="-6" y="6" width="12" height="2.5" rx="1.2" fill="#fff" opacity="0.5"/>
+  </g>
+  <line x1="200" y1="128" x2="200" y2="148" stroke="#4f8ef7" stroke-width="2" opacity="0.6"/>
+
+  <!-- Agent 2 top-right orange -->
+  <g transform="translate(282,153)">
+    <line x1="0" y1="-14" x2="0" y2="-22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-25" r="4" fill="#f97316"/>
+    <rect x="-16" y="-12" width="32" height="26" rx="7" fill="#f97316"/>
+    <circle cx="-6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="-6" cy="-2" r="1.8" fill="#f97316"/>
+    <circle cx="6" cy="-2" r="1.8" fill="#f97316"/>
+    <rect x="-6" y="6" width="12" height="2.5" rx="1.2" fill="#fff" opacity="0.5"/>
+  </g>
+  <line x1="266" y1="162" x2="232" y2="180" stroke="#f97316" stroke-width="2" opacity="0.6"/>
+
+  <!-- Agent 3 bottom-right green -->
+  <g transform="translate(282,247)">
+    <line x1="0" y1="-14" x2="0" y2="-22" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-25" r="4" fill="#10b981"/>
+    <rect x="-16" y="-12" width="32" height="26" rx="7" fill="#10b981"/>
+    <circle cx="-6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="-6" cy="-2" r="1.8" fill="#10b981"/>
+    <circle cx="6" cy="-2" r="1.8" fill="#10b981"/>
+    <rect x="-6" y="6" width="12" height="2.5" rx="1.2" fill="#fff" opacity="0.5"/>
+  </g>
+  <line x1="266" y1="238" x2="232" y2="220" stroke="#10b981" stroke-width="2" opacity="0.6"/>
+
+  <!-- Agent 4 bottom purple -->
+  <g transform="translate(200,294)">
+    <line x1="0" y1="-14" x2="0" y2="-22" stroke="#a855f7" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-25" r="4" fill="#a855f7"/>
+    <rect x="-16" y="-12" width="32" height="26" rx="7" fill="#a855f7"/>
+    <circle cx="-6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="-6" cy="-2" r="1.8" fill="#a855f7"/>
+    <circle cx="6" cy="-2" r="1.8" fill="#a855f7"/>
+    <rect x="-6" y="6" width="12" height="2.5" rx="1.2" fill="#fff" opacity="0.5"/>
+  </g>
+  <line x1="200" y1="272" x2="200" y2="252" stroke="#a855f7" stroke-width="2" opacity="0.6"/>
+
+  <!-- Agent 5 bottom-left pink -->
+  <g transform="translate(118,247)">
+    <line x1="0" y1="-14" x2="0" y2="-22" stroke="#ec4899" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-25" r="4" fill="#ec4899"/>
+    <rect x="-16" y="-12" width="32" height="26" rx="7" fill="#ec4899"/>
+    <circle cx="-6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="-6" cy="-2" r="1.8" fill="#ec4899"/>
+    <circle cx="6" cy="-2" r="1.8" fill="#ec4899"/>
+    <rect x="-6" y="6" width="12" height="2.5" rx="1.2" fill="#fff" opacity="0.5"/>
+  </g>
+  <line x1="134" y1="238" x2="168" y2="220" stroke="#ec4899" stroke-width="2" opacity="0.6"/>
+
+  <!-- Agent 6 top-left cyan -->
+  <g transform="translate(118,153)">
+    <line x1="0" y1="-14" x2="0" y2="-22" stroke="#06b6d4" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="-25" r="4" fill="#06b6d4"/>
+    <rect x="-16" y="-12" width="32" height="26" rx="7" fill="#06b6d4"/>
+    <circle cx="-6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="6" cy="-2" r="4" fill="#fff"/>
+    <circle cx="-6" cy="-2" r="1.8" fill="#06b6d4"/>
+    <circle cx="6" cy="-2" r="1.8" fill="#06b6d4"/>
+    <rect x="-6" y="6" width="12" height="2.5" rx="1.2" fill="#fff" opacity="0.5"/>
+  </g>
+  <line x1="134" y1="162" x2="168" y2="180" stroke="#06b6d4" stroke-width="2" opacity="0.6"/>
+
+  <!-- agent-to-agent dashed arcs -->
+  <path d="M214,93 Q252,90 270,140" fill="none" stroke="#7070c0" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+  <path d="M297,167 Q308,200 297,233" fill="none" stroke="#7070c0" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+  <path d="M186,93 Q148,90 130,140" fill="none" stroke="#7070c0" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+  <path d="M103,167 Q92,200 103,233" fill="none" stroke="#7070c0" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+  <path d="M214,307 Q200,320 186,307" fill="none" stroke="#7070c0" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+</svg>
