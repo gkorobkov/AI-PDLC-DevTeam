@@ -29,7 +29,7 @@ const translations = {
     tabs: {
       businessIdea: 'Business idea',
       requirements: 'Requirements',
-      architecture: 'Architecture, spec',
+      architecture: 'Architecture',
       development: 'Development',
       codeReview: 'Code review',
       testing: 'Testing',
@@ -196,7 +196,7 @@ const translations = {
     tabs: {
       businessIdea: 'Бизнес идея',
       requirements: 'Требования',
-      architecture: 'Архитектура, спецификация',
+      architecture: 'Архитектура',
       development: 'Разработка',
       codeReview: 'Code review',
       testing: 'Тестирование',
@@ -580,10 +580,10 @@ function createManualArtifact(step, text, locale) {
 }
 
 function clampArtifactField(text) {
-  if (!text || text.length <= 360) {
+  if (!text || text.length <= 160) {
     return text;
   }
-  return `${text.slice(0, 357)}...`;
+  return `${text.slice(0, 157)}...`;
 }
 
 function createStageArtifact(step, source, locale, filled = true) {
@@ -761,8 +761,8 @@ function getSectionEditorRows(section) {
   }
   const visualLines = text
     .split('\n')
-    .reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 54)), 0);
-  return Math.min(16, Math.max(3, visualLines + 2));
+    .reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 64)), 0);
+  return Math.min(10, Math.max(2, visualLines + 1));
 }
 
 function ArtifactPreview({ artifact, emptyText, onChange }) {
@@ -1356,7 +1356,6 @@ function App() {
         <div className="stage-agent-strip">
           <div className="stage-agent-copy">
             <strong>{step.label}</strong>
-            <span>{step.caption}</span>
           </div>
         </div>
 
