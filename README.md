@@ -2,6 +2,7 @@
 
 - [Project: AI PDLC Development Team](#project-ai-pdlc-development-team)
   - [1. Goal](#1-goal)
+  - [Concept: Website And PDLC Flow](#concept-website-and-pdlc-flow)
   - [2. Stack](#2-stack)
   - [3. Architecture](#3-architecture)
   - [4. Environment Setup](#4-environment-setup)
@@ -63,6 +64,40 @@ Key PDLC stages supported by the platform:
 - Code Review Agent
 - DevOps / Release Agent
 - Metrics & Observability
+
+## Concept: Website And PDLC Flow
+
+AI PDLC Management - это рабочее пространство продуктовой команды, а не обычный чат с LLM. Сайт проводит бизнес-идею через этапы product development lifecycle и на каждом шаге превращает ее в управляемый артефакт: требования, QA-сценарии, замечания ревью, признаки готовности к релизу и метрики процесса. Главный UX-принцип: AI готовит структурированную работу, человек проверяет и утверждает результат, следующий PDLC-шаг начинается только от утвержденного артефакта.
+
+Интерфейс организован вокруг 7 этапов AI PDLC. Это объединяет классический SDLC-подход, где есть planning/analysis, design, implementation, testing, deployment и maintenance, с AI governance-практиками: риски, human review, observability, provider limits и continuous improvement должны контролироваться на протяжении всего цикла.
+
+- **Requirements / Требования**: входная точка для product manager, analyst или business owner. Пользователь описывает бизнес-идею, контекст продукта и ограничения. Requirement Analyst Agent превращает это в problem statement, user story, acceptance criteria, риски, зависимости, edge cases и список задач для разработки.
+- **Architecture / Архитектура**: Solution Architect Agent превращает утвержденные требования в проект решения: границы интеграций, архитектурные решения, API/data impact, security constraints и tradeoffs.
+- **Build / Разработка**: Implementation Agent готовит план реализации: компоненты, задачи, кодовые стандарты, зависимости, изменения данных и ожидаемые точки риска.
+- **QA**: QA Agent берет требования, архитектурный и implementation-контекст и готовит функциональные, негативные, edge-case и regression tests.
+- **Review / Ревью**: Code Review Agent проверяет код, проектное решение или результат реализации относительно требований, coding standards, security rules, рисков и Definition of Done.
+- **Release / Релиз**: DevOps / Release Agent проверяет deployment readiness, rollback criteria, monitoring, incident response, release checklist и production readiness.
+- **Metrics & Governance / Метрики и governance**: управленческая и операционная видимость. Экран должен показывать AI runs, latency, acceptance rate, rejection rate, human review rate, detected risks, estimated time savings, token/cost usage и LLM provider limits. Лимиты LLM являются сквозным governance-контролем, а не отдельным PDLC-этапом.
+
+Рекомендуемый PDLC-сценарий работы с сайтом:
+
+1. **Зафиксировать идею и требования**: пользователь описывает бизнес-идею обычным языком, добавляет контекст продукта и ограничения: интеграции, сроки релиза, регуляторику, бизнес-правила или технические рамки.
+2. **Проанализировать requirement artifact**: Requirement Analyst Agent структурирует идею в проверяемые требования, пригодные для architecture, build и QA.
+3. **Утвердить требования**: product owner или analyst исправляет слабые допущения, уточняет приоритеты и подтверждает требования как источник для следующих этапов.
+4. **Спроектировать архитектуру**: Solution Architect Agent готовит high-level design, integration boundaries, API/data impact, security constraints и технические tradeoffs.
+5. **Спланировать реализацию**: Implementation Agent превращает архитектурный артефакт в компоненты, задачи, кодовые изменения, зависимости и engineering checklist.
+6. **Подготовить QA**: QA Agent генерирует functional, negative, edge-case и regression tests на основе требований, архитектуры и плана реализации.
+7. **Провести ревью**: Code Review Agent проверяет реализацию относительно требований, стандартов, security rules и ожидаемого test coverage.
+8. **Подготовить релиз**: DevOps / Release Agent проверяет deployment readiness, rollback criteria, monitoring, incident response и Definition of Done.
+9. **Измерять и управлять рисками**: Metrics & Governance фиксирует AI-запуски и решения команды, показывает эффективность, качество, human review, риски, расход токенов, стоимость и LLM limits.
+
+С точки зрения UX каждый экран должен отвечать на три вопроса:
+
+- **Что я должен ввести сейчас?** Inputs должны быть конкретными и соответствовать текущему PDLC-этапу.
+- **Какой артефакт я получу?** Outputs должны быть структурированы для следующей роли в процессе, а не выглядеть как общий совет.
+- **Кто утверждает следующий шаг?** Для любых значимых действий human-in-the-loop approval должен быть явно виден.
+
+Ожидаемое поведение сайта - пошаговый workflow, где каждая вкладка является управляемым PDLC-gate. Сайт должен помогать команде пройти путь от "идея" к "ready for development", затем к "ready for testing", "ready for review", "ready for release" и далее к измеримому continuous improvement.
 
 ## 2. Stack
 
