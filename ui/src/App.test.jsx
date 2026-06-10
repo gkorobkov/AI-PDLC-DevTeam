@@ -39,7 +39,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /Generate requirements/i }));
 
     await screen.findByText('Problem statement');
-    const activeNextButton = document.querySelector('.stage-slide.active .next-stage-footer .btn');
+    const activeNextButton = document.querySelector('.stage-slide.stage-current .stage-panel-footer .flow-next');
     expect(activeNextButton).toBeTruthy();
     expect(activeNextButton.disabled).toBe(false);
     fireEvent.click(activeNextButton);
@@ -62,5 +62,25 @@ describe('App', () => {
 
     expect(metricsButton.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByLabelText('Metrics').className).toContain('open');
+  });
+
+  it('moves carousel by exactly one panel from any visible next or back button', async () => {
+    render(<App />);
+
+    const train = document.querySelector('.stage-train');
+    const rightPanelNext = document.querySelector('.stage-slide.stage-next .flow-next');
+    expect(rightPanelNext).toBeTruthy();
+
+    fireEvent.click(rightPanelNext);
+    await waitFor(() => {
+      expect(train?.getAttribute('style')).toContain('--stage-index: 1');
+    });
+
+    const rightPanelBack = document.querySelector('.stage-slide.stage-next .flow-back');
+    expect(rightPanelBack).toBeTruthy();
+    fireEvent.click(rightPanelBack);
+    await waitFor(() => {
+      expect(train?.getAttribute('style')).toContain('--stage-index: 0');
+    });
   });
 });

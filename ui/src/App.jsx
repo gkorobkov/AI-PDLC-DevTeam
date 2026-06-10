@@ -433,7 +433,6 @@ function WorkflowStagePanel({
             <strong>{title}</strong>
             <span>{description}</span>
           </div>
-          <span className={`stage-status ${needsAttention ? 'attention' : 'idle'}`}>{statusText}</span>
         </div>
 
         <div className="stage-body">
@@ -580,6 +579,192 @@ function createManualArtifact(step, text, locale) {
   };
 }
 
+function clampArtifactField(text) {
+  if (!text || text.length <= 360) {
+    return text;
+  }
+  return `${text.slice(0, 357)}...`;
+}
+
+function createStageArtifact(step, source, locale, filled = true) {
+  const sourceText = source?.trim() || (locale === 'ru' ? 'Контекст предыдущего этапа пока не заполнен.' : 'Previous stage context is not filled yet.');
+  const blank = '';
+  const value = (text) => (filled ? clampArtifactField(text) : blank);
+  const list = (...items) => (filled ? items : ['']);
+  const ru = {
+    'business-idea': [
+      { title: 'Бизнес-идея', body: value(sourceText) },
+      { title: 'Контекст продукта', body: value('B2C loyalty platform: пользователи видят бонусы, транзакции и обращения в мобильном приложении.') },
+      { title: 'Ограничения', body: value('Интеграция с платежным провайдером, аудит спорных операций, релиз без влияния на текущие начисления.') },
+    ],
+    requirements: [
+      { title: 'Описание проблемы', body: value(`Нужно снизить ручную обработку и ошибки в процессе: ${sourceText}`) },
+      { title: 'Пользовательская история', body: value(`Как клиент программы лояльности, я хочу подать и отслеживать спор по бонусной операции, чтобы быстро исправить ошибочное списание.`) },
+      { title: 'Критерии приемки', items: list('Пользователь создает спор из истории операций.', 'Система показывает статус рассмотрения.', 'Все решения и ошибки логируются для аудита.') },
+      { title: 'Риски', items: list('Недостаточный контекст платежной операции.', 'Несогласованные юридические сроки рассмотрения.', 'Ошибочная повторная обработка одного спора.') },
+      { title: 'Зависимости', items: list('Платежный провайдер.', 'Сервис уведомлений.', 'Компонент истории бонусных операций.') },
+      { title: 'Пограничные сценарии', items: list('Повторная отправка одного спора.', 'Недоступен платежный провайдер.', 'Операция уже была компенсирована вручную.') },
+      { title: 'Задачи разработки', items: list('Спроектировать модель спора.', 'Добавить API создания и просмотра споров.', 'Добавить статусы, аудит и уведомления.') },
+    ],
+    architecture: [
+      { title: 'Входной артефакт требований', body: value(sourceText) },
+      { title: 'Целевая архитектура', body: value('Добавить dispute-service между UI, bonus-ledger и payment-adapter. Хранить состояние спора отдельно от транзакции.') },
+      { title: 'API и контракты', items: list('POST /bonus-disputes', 'GET /bonus-disputes/{id}', 'GET /transactions/{id}/dispute-status') },
+      { title: 'Данные', items: list('dispute_id, transaction_id, reason, status, audit_events.', 'Индексы по user_id и transaction_id.', 'Срок хранения аудита не меньше 24 месяцев.') },
+      { title: 'Интеграции', items: list('payment-adapter для проверки операции.', 'notification-service для смены статуса.', 'admin console для ручного решения.') },
+      { title: 'НФТ и безопасность', items: list('P95 ответа API до 400 мс.', 'PII маскируется в логах.', 'Все смены статуса трассируются.') },
+    ],
+    development: [
+      { title: 'Входная спецификация', body: value(sourceText) },
+      { title: 'План реализации', items: list('Создать миграции и модель dispute.', 'Реализовать REST API и проверки идемпотентности.', 'Добавить UI-состояния создания и просмотра спора.') },
+      { title: 'Компоненты кода', items: list('dispute-service', 'mobile loyalty UI', 'admin console', 'payment-adapter client') },
+      { title: 'Наблюдаемость', items: list('Метрики создания, решения и ошибок.', 'Correlation ID на весь workflow.', 'Алерт на рост отказов провайдера.') },
+      { title: 'Definition of Done', items: list('Контракты покрыты тестами.', 'Feature flag настроен.', 'Документация API обновлена.') },
+    ],
+    'code-review': [
+      { title: 'Входной артефакт разработки', body: value(sourceText) },
+      { title: 'Фокус ревью', items: list('Корректность переходов статусов.', 'Идемпотентность создания спора.', 'Отсутствие PII в логах.') },
+      { title: 'Критичные проверки', items: list('Нет возможности открыть два активных спора на одну операцию.', 'Ошибки провайдера не теряют пользовательский запрос.', 'Права доступа проверяются на каждом API.') },
+      { title: 'Запросы на исправление', items: list('Добавить тест на повторный submit.', 'Уточнить обработку timeout payment-adapter.', 'Проверить миграцию индексов на больших таблицах.') },
+    ],
+    testing: [
+      { title: 'Входной артефакт ревью', body: value(sourceText) },
+      { title: 'Функциональные тесты', items: list('Создание спора по валидной операции.', 'Просмотр статуса спора.', 'Получение уведомления при смене статуса.') },
+      { title: 'Негативные сценарии', items: list('Повторный спор по той же операции.', 'Недоступен платежный провайдер.', 'Операция принадлежит другому пользователю.') },
+      { title: 'Регрессия', items: list('История операций.', 'Начисление и списание бонусов.', 'Уведомления личного кабинета.') },
+      { title: 'Тестовые данные', body: value('Набор операций: успешная покупка, возврат, ручная корректировка, операция без бонусов.') },
+    ],
+    release: [
+      { title: 'Входной тестовый артефакт', body: value(sourceText) },
+      { title: 'План релиза', items: list('Включить feature flag для 5% пользователей.', 'Проверить метрики ошибок и SLA.', 'Расширить rollout после 24 часов стабильности.') },
+      { title: 'Rollback', items: list('Отключить feature flag.', 'Оставить API read-only для существующих споров.', 'Сохранить аудит созданных обращений.') },
+      { title: 'Мониторинг', items: list('dispute_create_error_rate', 'payment_adapter_timeout_rate', 'median_resolution_time') },
+      { title: 'Коммуникации', body: value('Поддержка получает шаблоны ответов и инструкцию по ручной эскалации спорных операций.') },
+    ],
+  };
+  const en = {
+    'business-idea': [
+      { title: 'Business idea', body: value(sourceText) },
+      { title: 'Product context', body: value('B2C loyalty platform where customers view bonus balance, transactions, and support requests in a mobile app.') },
+      { title: 'Constraints', body: value('Payment provider integration, disputed-operation audit trail, release without affecting current accruals.') },
+    ],
+    requirements: [
+      { title: 'Problem statement', body: value(`Reduce manual handling and operational errors in: ${sourceText}`) },
+      { title: 'User story', body: value('As a loyalty customer, I want to submit and track a bonus-operation dispute so an incorrect charge can be resolved quickly.') },
+      { title: 'Acceptance criteria', items: list('The user creates a dispute from transaction history.', 'The system shows processing status.', 'All decisions and errors are logged for audit.') },
+      { title: 'Risks', items: list('Payment-operation context is incomplete.', 'Legal response windows are not aligned.', 'The same dispute can be processed twice.') },
+      { title: 'Dependencies', items: list('Payment provider.', 'Notification service.', 'Bonus transaction history component.') },
+      { title: 'Edge cases', items: list('Duplicate dispute submission.', 'Payment provider unavailable.', 'Operation was already compensated manually.') },
+      { title: 'Development tasks', items: list('Design dispute data model.', 'Add create/view dispute APIs.', 'Add statuses, audit trail, and notifications.') },
+    ],
+    architecture: [
+      { title: 'Requirements input', body: value(sourceText) },
+      { title: 'Target architecture', body: value('Add dispute-service between UI, bonus-ledger, and payment-adapter. Store dispute state separately from transaction state.') },
+      { title: 'API contracts', items: list('POST /bonus-disputes', 'GET /bonus-disputes/{id}', 'GET /transactions/{id}/dispute-status') },
+      { title: 'Data model', items: list('dispute_id, transaction_id, reason, status, audit_events.', 'Indexes by user_id and transaction_id.', 'Audit retention at least 24 months.') },
+      { title: 'Integrations', items: list('payment-adapter for transaction verification.', 'notification-service for status updates.', 'admin console for manual resolution.') },
+      { title: 'NFR and security', items: list('API P95 under 400 ms.', 'PII masked in logs.', 'Every status change is traceable.') },
+    ],
+    development: [
+      { title: 'Architecture input', body: value(sourceText) },
+      { title: 'Implementation plan', items: list('Create migrations and dispute model.', 'Implement REST API and idempotency checks.', 'Add UI states for create and view flows.') },
+      { title: 'Code areas', items: list('dispute-service', 'mobile loyalty UI', 'admin console', 'payment-adapter client') },
+      { title: 'Observability', items: list('Metrics for creation, resolution, and errors.', 'Correlation ID across the workflow.', 'Alert on provider error spike.') },
+      { title: 'Definition of Done', items: list('Contracts covered by tests.', 'Feature flag configured.', 'API documentation updated.') },
+    ],
+    'code-review': [
+      { title: 'Development input', body: value(sourceText) },
+      { title: 'Review focus', items: list('Status transition correctness.', 'Dispute creation idempotency.', 'No PII leakage in logs.') },
+      { title: 'Critical checks', items: list('No two active disputes for one transaction.', 'Provider errors do not lose user request.', 'Access control is enforced on every API.') },
+      { title: 'Required changes', items: list('Add duplicate-submit test.', 'Clarify payment-adapter timeout handling.', 'Check index migration on large tables.') },
+    ],
+    testing: [
+      { title: 'Review input', body: value(sourceText) },
+      { title: 'Functional tests', items: list('Create dispute for valid transaction.', 'View dispute status.', 'Receive notification after status change.') },
+      { title: 'Negative tests', items: list('Duplicate dispute for the same transaction.', 'Payment provider unavailable.', 'Operation belongs to another user.') },
+      { title: 'Regression', items: list('Transaction history.', 'Bonus accrual and charge flows.', 'Customer account notifications.') },
+      { title: 'Test data', body: value('Transactions: successful purchase, refund, manual adjustment, operation without bonus points.') },
+    ],
+    release: [
+      { title: 'Testing input', body: value(sourceText) },
+      { title: 'Release plan', items: list('Enable feature flag for 5% of users.', 'Watch error and SLA metrics.', 'Expand rollout after 24 stable hours.') },
+      { title: 'Rollback', items: list('Disable feature flag.', 'Keep API read-only for existing disputes.', 'Preserve audit for created requests.') },
+      { title: 'Monitoring', items: list('dispute_create_error_rate', 'payment_adapter_timeout_rate', 'median_resolution_time') },
+      { title: 'Comms', body: value('Support receives response templates and manual escalation instructions for disputed operations.') },
+    ],
+  };
+  return {
+    title: getArtifactTitle(step, locale),
+    generatedAt: new Date().toISOString(),
+    sections: ((locale === 'ru' ? ru : en)[step.id] || [{ title: step.label, body: value(sourceText) }]),
+  };
+}
+
+function createBusinessIdeaArtifact(source, locale, useCaseIndex = 0) {
+  const ruUseCases = [
+    {
+      idea: 'Автоматизировать обработку жалоб на ошибочные списания бонусов.',
+      context: 'B2C loyalty platform: пользователи видят баланс бонусов, историю транзакций и обращения в мобильном приложении.',
+      constraints: 'Интеграция с платежной системой, GDPR-совместимость, релиз через 2 месяца, обязательный аудит спорных операций.',
+    },
+    {
+      idea: 'Добавить управление скидками и бонусами в личном кабинете клиента.',
+      context: 'Клиенты хотят видеть активные скидки, доступные бонусы, сроки действия и историю изменений без обращения в поддержку.',
+      constraints: 'Нужно синхронизироваться с CRM и promo engine, сохранить текущие правила лояльности и не ломать checkout.',
+    },
+    {
+      idea: 'Отслеживать риски транзакций и отправлять уведомления о подозрительной активности.',
+      context: 'Финансовые операции проходят через мобильное приложение, а пользователю важно быстро понимать, почему операция помечена как рискованная.',
+      constraints: 'Требуется низкая задержка уведомлений, интеграция с risk scoring, журналирование причин и ручная эскалация.',
+    },
+  ];
+  const enUseCases = [
+    {
+      idea: 'Automate handling complaints about incorrect bonus charges.',
+      context: 'B2C loyalty platform where customers view bonus balance, transactions, and support requests in a mobile app.',
+      constraints: 'Payment provider integration, GDPR compatibility, release in 2 months, disputed-operation audit trail.',
+    },
+    {
+      idea: 'Add discount and bonus management to the customer account.',
+      context: 'Customers need to see active discounts, available bonuses, expiration dates, and change history without contacting support.',
+      constraints: 'Synchronize with CRM and promo engine, preserve current loyalty rules, and avoid checkout regressions.',
+    },
+    {
+      idea: 'Track transaction risks and notify users about suspicious activity.',
+      context: 'Financial operations happen in the mobile app, and users need clear reasons when an operation is marked risky.',
+      constraints: 'Low notification latency, risk scoring integration, reason audit trail, and manual escalation path.',
+    },
+  ];
+  const selected = (locale === 'ru' ? ruUseCases : enUseCases)[useCaseIndex] || (locale === 'ru' ? ruUseCases[0] : enUseCases[0]);
+  const idea = source?.trim() || selected.idea;
+  return {
+    title: getArtifactTitle({ id: 'business-idea', label: locale === 'ru' ? 'Бизнес идея' : 'Business idea' }, locale),
+    generatedAt: new Date().toISOString(),
+    sections: locale === 'ru'
+      ? [
+          { title: 'Бизнес-идея', body: idea },
+          { title: 'Контекст продукта', body: selected.context },
+          { title: 'Ограничения', body: selected.constraints },
+        ]
+      : [
+          { title: 'Business idea', body: idea },
+          { title: 'Product context', body: selected.context },
+          { title: 'Constraints', body: selected.constraints },
+        ],
+  };
+}
+
+function getSectionEditorRows(section) {
+  const text = section.items ? section.items.join('\n') : section.body || '';
+  if (!text.trim()) {
+    return 3;
+  }
+  const visualLines = text
+    .split('\n')
+    .reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 54)), 0);
+  return Math.min(16, Math.max(3, visualLines + 2));
+}
+
 function ArtifactPreview({ artifact, emptyText, onChange }) {
   if (!artifact) {
     return <div className="artifact-empty">{emptyText}</div>;
@@ -603,15 +788,16 @@ function ArtifactPreview({ artifact, emptyText, onChange }) {
     onChange?.({ ...artifact, sections });
   };
   return (
-    <div className="artifact-preview">
+    <div className={`artifact-preview sections-${artifact.sections.length}`}>
       {artifact.sections.map((section, index) => (
         <div className="result-section" key={section.title}>
           <h3>{section.title}</h3>
           <textarea
             className="artifact-editor"
+            placeholder={emptyText}
             value={section.items ? section.items.join('\n') : section.body || ''}
             onChange={(event) => handleSectionChange(index, event.target.value, section.items ? 'items' : 'body')}
-            rows={section.items ? Math.max(3, section.items.length + 1) : 4}
+            rows={getSectionEditorRows(section)}
           />
         </div>
       ))}
@@ -667,46 +853,7 @@ function App() {
   const isWorkingCurrent = stageWorking === activeStep?.id;
   const canGenerateNext = Boolean(nextStep && (activeInput.trim() || activeArtifact));
   const canConfirmNext = Boolean(nextStep && (nextArtifact || nextInput.trim()));
-  const getStepStatus = (stepId) => {
-    if (stageWorking === stepId) {
-      return { caption: t.workflow.status.analyzing, status: 'analyzing' };
-    }
-    if (stageArtifacts[stepId]) {
-      const stepIndex = workflowSteps.findIndex((step) => step.id === stepId);
-      return stepIndex <= activeStepIndex
-        ? { caption: t.workflow.status.confirmed, status: 'confirmed' }
-        : { caption: t.workflow.status.ready, status: 'ready' };
-    }
-    if ((stageInputs[stepId] || '').trim()) {
-      return { caption: t.workflow.status.ready, status: 'ready' };
-    }
-    return { caption: t.workflow.status.waiting, status: 'waiting' };
-  };
   const requirementSummary = requirementArtifact?.problem_statement || requirementArtifact?.user_story || '';
-  const stepMeta = {
-    'business-idea': {
-      caption: stageWorking === 'business-idea'
-        ? t.workflow.status.analyzing
-        : stageArtifacts['business-idea']
-          ? t.workflow.status.confirmed
-          : (stageInputs['business-idea'] || '').trim()
-            ? t.workflow.status.ready
-            : t.workflow.status.needsInput,
-      status: stageWorking === 'business-idea'
-        ? 'analyzing'
-        : stageArtifacts['business-idea']
-          ? 'confirmed'
-          : (stageInputs['business-idea'] || '').trim()
-            ? 'ready'
-            : 'needs-input',
-    },
-    requirements: getStepStatus('requirements'),
-    architecture: getStepStatus('architecture'),
-    development: getStepStatus('development'),
-    'code-review': getStepStatus('code-review'),
-    testing: getStepStatus('testing'),
-    release: getStepStatus('release'),
-  };
   const metricsStatus = metricsNotes.trim() || releaseNotes.trim() ? t.workflow.status.ready : t.workflow.status.waiting;
   const activeSource = activeInput || activeArtifact?.sections?.map((section) => section.body || section.items?.join(' ')).filter(Boolean).join(' ') || requirementSummary;
   const uiText = locale === 'ru'
@@ -901,7 +1048,7 @@ function App() {
     window.setTimeout(() => {
       setStageArtifacts((current) => ({
         ...current,
-        [followingStep.id]: createArtifact(followingStep, source, locale),
+        [followingStep.id]: createStageArtifact(followingStep, source, locale),
       }));
       setStageWorking(null);
     }, 750);
@@ -953,7 +1100,7 @@ function App() {
     window.setTimeout(() => {
       setStageArtifacts((current) => ({
         ...current,
-        [nextStep.id]: createArtifact(nextStep, activeSource, locale),
+        [nextStep.id]: createStageArtifact(nextStep, activeSource, locale),
       }));
       setStageWorking(null);
     }, 750);
@@ -1031,16 +1178,16 @@ function App() {
         };
 
     return (
-      <section className={`stage-pair ${followingArtifact ? 'artifact-expanded' : ''}`} aria-label={step.label}>
+      <section
+        className={`stage-pair ${followingArtifact ? 'artifact-expanded' : 'awaiting-next-artifact'}`}
+        aria-label={step.label}
+      >
         <div className="stage-card current-stage-card">
           <div className="stage-agent-strip">
             <div className="stage-agent-copy">
               <strong>{step.label}</strong>
               <span>{step.caption}</span>
             </div>
-            <span className={`stage-status ${canGenerate ? 'idle' : 'attention'}`}>
-              {working ? t.workflow.status.analyzing : slideText.active}
-            </span>
           </div>
 
           {step.id === 'business-idea' && (
@@ -1088,45 +1235,14 @@ function App() {
             </div>
           )}
 
-          <div className="stage-actions">
-            <button
-              type="button"
-              className="btn btn-secondary action-with-help"
-              onClick={() => analyzeStep(step, followingStep)}
-              disabled={working}
-            >
-              {working ? <span className="btn-spinner" aria-hidden="true" /> : null}
-              <span>{working ? slideText.analyzing : slideText.analyze}</span>
-              <small>{slideText.analyzeHelp}</small>
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary action-with-help"
-              onClick={() => generateNextForStep(step, followingStep)}
-              disabled={!canGenerate || working}
-            >
-              {working ? <span className="btn-spinner" aria-hidden="true" /> : null}
-              <span>{working ? slideText.generating : slideText.generate}</span>
-              <small>{slideText.generateHelp}</small>
-            </button>
-          </div>
-
-          <div className="stage-nav-footer">
-            <button type="button" className="btn btn-secondary" onClick={goPrev} disabled={index === 0}>
-              {slideText.back}
-            </button>
-          </div>
         </div>
 
-        <div className="stage-card next-stage-card">
+        <div className={`stage-card next-stage-card ${followingArtifact ? 'is-ready' : 'is-awaiting'}`}>
           <div className="stage-agent-strip">
             <div className="stage-agent-copy">
-              <strong>{followingStep ? getArtifactTitle(followingStep, locale) : slideText.finalTitle}</strong>
+              <strong>{followingStep ? followingStep.label : slideText.finalTitle}</strong>
               <span>{followingStep ? followingStep.caption : slideText.finalDescription}</span>
             </div>
-            <span className={`stage-status ${followingArtifact ? 'idle' : 'attention'}`}>
-              {followingArtifact ? slideText.nextReady : slideText.nextWaiting}
-            </span>
           </div>
 
           {followingArtifact ? (
@@ -1138,7 +1254,7 @@ function App() {
           ) : (
             <div className="form-group next-draft-input">
               <label htmlFor={`${followingStep?.id || 'final'}-draft`}>
-                {followingStep ? getArtifactTitle(followingStep, locale) : slideText.finalTitle}
+                {followingStep ? followingStep.label : slideText.finalTitle}
               </label>
               <textarea
                 id={`${followingStep?.id || 'final'}-draft`}
@@ -1149,17 +1265,180 @@ function App() {
               />
             </div>
           )}
+        </div>
 
-          <div className="next-stage-footer">
+        <div className="stage-flow-footer">
+          <button type="button" className="btn btn-secondary flow-back" onClick={goPrev} disabled={index === 0}>
+            {slideText.back}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary action-with-help flow-analyze"
+            onClick={() => analyzeStep(step, followingStep)}
+            disabled={working}
+          >
+            {working ? <span className="btn-spinner" aria-hidden="true" /> : null}
+            <span>{working ? slideText.analyzing : slideText.analyze}</span>
+            <small>{slideText.analyzeHelp}</small>
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary action-with-help flow-generate"
+            onClick={() => generateNextForStep(step, followingStep)}
+            disabled={!canGenerate || working}
+          >
+            {working ? <span className="btn-spinner" aria-hidden="true" /> : null}
+            <span>{working ? slideText.generating : slideText.generate}</span>
+            <small>{slideText.generateHelp}</small>
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary flow-next"
+            onClick={() => confirmNextForStep(index)}
+            disabled={!canGoForward}
+          >
+            {slideText.next}
+          </button>
+        </div>
+      </section>
+    );
+  };
+
+  const renderStagePanel = (step, index) => {
+    const followingStep = workflowSteps[index + 1] || null;
+    const stepInput = stageInputs[step.id] || '';
+    const stepArtifact = stageArtifacts[step.id];
+    const displayedArtifact = stepArtifact || createStageArtifact(step, stepInput, locale, false);
+    const working = stageWorking === step.id;
+    const canGenerate = Boolean(followingStep && (stepInput.trim() || stepArtifact));
+    const canMoveToThisStep = index === 0 || Boolean(stepArtifact || stepInput.trim());
+    const inputLabel = step.id === 'business-idea'
+      ? (locale === 'ru' ? 'Бизнес-идея, контекст и ограничения' : 'Business idea, context, and constraints')
+      : (locale === 'ru' ? 'Входные данные, уточнения или замечания' : 'Input data, refinements, or notes');
+    const inputPlaceholder = step.id === 'business-idea'
+      ? (locale === 'ru'
+        ? 'Опиши идею простыми словами: что меняем, для кого, какие ограничения важны.'
+        : 'Describe the idea in plain words: what changes, for whom, and which constraints matter.')
+      : (locale === 'ru'
+        ? 'Добавь уточнения к текущему этапу перед анализом или формированием следующего артефакта.'
+        : 'Add refinements for the current stage before analysis or next artifact generation.');
+    const actionText = locale === 'ru'
+      ? {
+          analyze: 'Проанализировать',
+          analyzing: 'Анализ...',
+          generate: `Сформировать ${formatStepText(followingStep, locale)}`,
+          generating: 'Формирование...',
+          back: 'Назад',
+          next: 'Далее',
+          active: 'Активный этап',
+          ready: 'Готово к переходу',
+          waiting: 'Ожидает входа',
+          complete: 'Финальный этап',
+        }
+      : {
+          analyze: 'Analyze',
+          analyzing: 'Analyzing...',
+          generate: `Generate ${formatStepText(followingStep, locale)}`,
+          generating: 'Generating...',
+          back: 'Back',
+          next: 'Next',
+          active: 'Active stage',
+          ready: 'Ready to enter',
+          waiting: 'Awaiting input',
+          complete: 'Final stage',
+        };
+    const statusText = index === activeStepIndex
+      ? actionText.active
+      : canMoveToThisStep ? actionText.ready : actionText.waiting;
+
+    return (
+      <section className="stage-card stage-panel-card" aria-label={step.label}>
+        <div className="stage-agent-strip">
+          <div className="stage-agent-copy">
+            <strong>{step.label}</strong>
+            <span>{step.caption}</span>
+          </div>
+        </div>
+
+        <div className="stage-panel-body">
+          {step.id === 'business-idea' && (
+            <div className="use-case-group span-2">
+              {[
+                locale === 'ru'
+                  ? 'Автоматизировать обработку жалоб на ошибочные списания бонусов.'
+                  : 'Automate handling complaints about incorrect bonus charges.',
+                locale === 'ru'
+                  ? 'Добавить управление скидками и бонусами в личном кабинете клиента.'
+                  : 'Add discount and bonus management to the customer account.',
+                locale === 'ru'
+                  ? 'Отслеживать риски транзакций и отправлять уведомления о подозрительной активности.'
+                  : 'Track transaction risks and notify about suspicious activity.',
+              ].map((text, useCaseIndex) => (
+                <button
+                  key={text}
+                  type="button"
+                  className="btn btn-secondary btn-compact"
+                  onClick={() => {
+                    const artifact = createBusinessIdeaArtifact(text, locale, useCaseIndex);
+                    setInputForStep(step.id, artifactToText(artifact));
+                    setArtifactForStep(step.id, artifact);
+                  }}
+                >
+                  Use Case {useCaseIndex + 1}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <ArtifactPreview
+            artifact={displayedArtifact}
+            emptyText={inputPlaceholder}
+            onChange={(artifact) => setArtifactForStep(step.id, artifact)}
+          />
+
+          {stageAnalysis[step.id] && (
+            <div className="stage-analysis-note">
+              <h3>{locale === 'ru' ? 'Что проверить перед следующим этапом' : 'What to check before the next stage'}</h3>
+              <ul>
+                {stageAnalysis[step.id].map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className={`stage-panel-footer ${index === 0 ? 'no-back' : ''} ${index === workflowSteps.length - 1 ? 'no-forward' : ''}`}>
+          {index > 0 && (
+            <button type="button" className="btn btn-transition flow-back" onClick={goPrev}>
+              {actionText.back}
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-secondary action-with-help flow-analyze"
+            onClick={() => analyzeStep(step, followingStep)}
+          >
+            {working ? <span className="btn-spinner" aria-hidden="true" /> : null}
+            <span>{working ? actionText.analyzing : actionText.analyze}</span>
+          </button>
+          {followingStep && (
             <button
               type="button"
-              className="btn btn-primary"
-              onClick={() => confirmNextForStep(index)}
-              disabled={!canGoForward}
+              className="btn btn-primary action-with-help flow-generate"
+              onClick={() => generateNextForStep(step, followingStep)}
             >
-              {slideText.next}
+              {working ? <span className="btn-spinner" aria-hidden="true" /> : null}
+              <span>{working ? actionText.generating : actionText.generate}</span>
             </button>
-          </div>
+          )}
+          {index < workflowSteps.length - 1 && (
+            <button
+              type="button"
+              className="btn btn-transition flow-next"
+              onClick={goNext}
+            >
+              {actionText.next}
+            </button>
+          )}
         </div>
       </section>
     );
@@ -1226,9 +1505,7 @@ function App() {
         labels={t.tabs}
         variant="top"
         steps={workflowSteps}
-        stepMeta={stepMeta}
         metricsLabel={t.tabs.metrics}
-        metricsStatus={metricsStatus}
         metricsOpen={metricsOpen}
         onToggleMetrics={() => setMetricsOpen((value) => !value)}
       />
@@ -1302,16 +1579,17 @@ function App() {
             style={{
               '--stage-count': workflowSteps.length,
               '--stage-index': activeStepIndex,
+              '--stage-visible': isNarrowScreen ? 1 : 2,
               '--stage-transition': `${transitionSpeed}s`,
             }}
           >
             {workflowSteps.map((step, index) => (
               <div
-                className={`stage-slide ${index === activeStepIndex ? 'active' : ''}`}
+                className={`stage-slide ${index === activeStepIndex ? 'active stage-current' : ''} ${index === activeStepIndex + 1 ? 'stage-next' : ''}`}
                 key={step.id}
-                aria-hidden={index !== activeStepIndex}
+                aria-hidden={index < activeStepIndex || index > activeStepIndex + 1}
               >
-                {renderStagePair(step, index)}
+                {renderStagePanel(step, index)}
               </div>
             ))}
           </div>
