@@ -777,7 +777,7 @@ function ArtifactPreview({ artifact, emptyText, onChange }) {
       if (field === 'items') {
         return {
           ...section,
-          items: value.split('\n').map((item) => item.trim()).filter(Boolean),
+          items: value.split('\n'),
         };
       }
       return {
@@ -1350,6 +1350,18 @@ function App() {
     const statusText = index === activeStepIndex
       ? actionText.active
       : canMoveToThisStep ? actionText.ready : actionText.waiting;
+    const contextButtonText = locale === 'ru' ? 'Контекст' : 'Context';
+    const useCaseOptions = [
+      locale === 'ru'
+        ? 'Автоматизировать обработку жалоб на ошибочные списания бонусов.'
+        : 'Automate handling complaints about incorrect bonus charges.',
+      locale === 'ru'
+        ? 'Добавить управление скидками и бонусами в личном кабинете клиента.'
+        : 'Add discount and bonus management to the customer account.',
+      locale === 'ru'
+        ? 'Отслеживать риски транзакций и отправлять уведомления о подозрительной активности.'
+        : 'Track transaction risks and notify about suspicious activity.',
+    ];
 
     return (
       <section className="stage-card stage-panel-card" aria-label={step.label}>
@@ -1357,26 +1369,13 @@ function App() {
           <div className="stage-agent-copy">
             <strong>{step.label}</strong>
           </div>
-        </div>
-
-        <div className="stage-panel-body">
-          {step.id === 'business-idea' && (
-            <div className="use-case-group span-2">
-              {[
-                locale === 'ru'
-                  ? 'Автоматизировать обработку жалоб на ошибочные списания бонусов.'
-                  : 'Automate handling complaints about incorrect bonus charges.',
-                locale === 'ru'
-                  ? 'Добавить управление скидками и бонусами в личном кабинете клиента.'
-                  : 'Add discount and bonus management to the customer account.',
-                locale === 'ru'
-                  ? 'Отслеживать риски транзакций и отправлять уведомления о подозрительной активности.'
-                  : 'Track transaction risks and notify about suspicious activity.',
-              ].map((text, useCaseIndex) => (
+          {step.id === 'business-idea' ? (
+            <div className="panel-context-actions use-case-group">
+              {useCaseOptions.map((text, useCaseIndex) => (
                 <button
                   key={text}
                   type="button"
-                  className="btn btn-secondary btn-compact"
+                  className="btn btn-secondary btn-compact context-action"
                   onClick={() => {
                     const artifact = createBusinessIdeaArtifact(text, locale, useCaseIndex);
                     setInputForStep(step.id, artifactToText(artifact));
@@ -1387,8 +1386,16 @@ function App() {
                 </button>
               ))}
             </div>
+          ) : (
+            <div className="panel-context-actions">
+              <button type="button" className="btn btn-secondary btn-compact context-action">
+                {contextButtonText}
+              </button>
+            </div>
           )}
+        </div>
 
+        <div className="stage-panel-body">
           <ArtifactPreview
             artifact={displayedArtifact}
             emptyText={inputPlaceholder}
