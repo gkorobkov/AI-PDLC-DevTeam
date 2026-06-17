@@ -117,16 +117,16 @@ Observability (minimum for demo): `ai_runs` table, simple dashboard; for enterpr
 
 Flow:
 
-User / Manager
-→ Dashboard UI
-→ FastAPI
-→ AI Orchestrator
-→ Agents
-→ LLM Client
-→ RAG Knowledge Base
-→ Guardrails
-→ SQLite Logs
-→ Metrics Dashboard
+- User / Manager
+- Dashboard UI
+- FastAPI
+- Guardrails
+- AI Orchestrator
+- Agents
+- LLM Client
+- RAG Knowledge Base
+- SQLite Logs
+- Metrics Dashboard
 
 Core components:
 

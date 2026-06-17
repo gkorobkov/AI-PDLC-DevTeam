@@ -7,6 +7,32 @@ const moneyFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 4,
 });
 
+const MOCK_LIMITS = {
+  supported: true,
+  demo: true,
+  provider: 'OpenAI',
+  model: 'gpt-4.1-mini',
+  is_free_tier: false,
+  limit: 250.0,
+  limit_remaining: 181.73,
+  usage: 68.27,
+  usage_daily: 7.84,
+  usage_weekly: 31.42,
+  usage_monthly: 68.27,
+  byok_usage: 14.62,
+  byok_usage_daily: 2.19,
+  byok_usage_weekly: 8.47,
+  byok_usage_monthly: 14.62,
+  limit_reset: '2026-07-01T00:00:00+03:00',
+  expires_at: '2026-12-31T23:59:00+03:00',
+  rate_limit: {
+    rpm: 900,
+    tpm: 240000,
+    queue: 'normal',
+  },
+  timestamp: new Date().toISOString(),
+};
+
 function formatValue(value, labels) {
   if (value === null || value === undefined || value === '') {
     return labels.notSet;
@@ -45,6 +71,13 @@ function LLMLimits({ labels }) {
   const [limits, setLimits] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const isRussian = /[А-Яа-я]/.test(labels.title || '');
+  const demoTitle = labels.demoTitle || (isRussian ? 'Демо-данные' : 'Demo data');
+  const demoMessage = labels.demoMessage || (
+    isRussian
+      ? 'Бэкенд лимитов пока не подключен. Для демо показан реалистичный срез лимитов провайдера.'
+      : 'Backend limits endpoint is not ready yet. Showing realistic provider limits for the demo.'
+  );
 
   const loadLimits = async () => {
     setLoading(true);
@@ -55,6 +88,7 @@ function LLMLimits({ labels }) {
       setLimits(response.data);
     } catch (err) {
       setError(err.response?.data?.detail || err.message || labels.failed);
+      setLimits(MOCK_LIMITS);
     } finally {
       setLoading(false);
     }
@@ -93,7 +127,13 @@ function LLMLimits({ labels }) {
           </button>
         </div>
 
-        {error && <div className="error">{error}</div>}
+        {error && limits?.demo && (
+          <div className="demo-notice">
+            <strong>{demoTitle}</strong>
+            <span>{demoMessage}</span>
+          </div>
+        )}
+        {error && !limits?.demo && <div className="error">{error}</div>}
         {loading && !limits && <div className="state-message">{labels.loading}</div>}
 
         {limits && !limits.supported && (

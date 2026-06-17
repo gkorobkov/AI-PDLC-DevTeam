@@ -144,6 +144,8 @@ const translations = {
       refreshing: 'Refreshing...',
       loading: 'Loading current LLM limit data...',
       failed: 'Failed to load LLM limits',
+      demoTitle: 'Demo data',
+      demoMessage: 'Backend limits endpoint is not ready yet. Showing realistic provider limits for the demo.',
       connected: 'is connected',
       provider: 'Provider',
       model: 'Model',
@@ -350,8 +352,9 @@ function readStoredValue(key, fallback, allowed) {
   return allowed.includes(value) ? value : fallback;
 }
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.1.7';
 const TRANSITION_SPEED_STEPS = [1.0, 1.5, 2.0, 2.5];
+const DEFAULT_TRANSITION_SPEED = TRANSITION_SPEED_STEPS[TRANSITION_SPEED_STEPS.length - 1];
 
 function getClosestTransitionSpeed(steps, value) {
   return steps.reduce((closest, step) => (
@@ -361,7 +364,9 @@ function getClosestTransitionSpeed(steps, value) {
 
 function readStoredTransitionSpeed() {
   const stored = Number(window.localStorage.getItem('ai-pdlc-transition-speed'));
-  return TRANSITION_SPEED_STEPS.includes(stored) ? stored : getClosestTransitionSpeed(TRANSITION_SPEED_STEPS, 1.2);
+  return TRANSITION_SPEED_STEPS.includes(stored)
+    ? stored
+    : getClosestTransitionSpeed(TRANSITION_SPEED_STEPS, DEFAULT_TRANSITION_SPEED);
 }
 
 function SegmentedControl({ label, options, value, onChange }) {
@@ -451,6 +456,139 @@ function WorkflowStagePanel({
               rows={7}
             />
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MetricsDemoPanel({ locale }) {
+  const ru = locale === 'ru';
+  const copy = ru
+    ? {
+        title: 'Метрики PDLC',
+        subtitle: 'Демо-срез для steering committee: скорость, качество, gates и участие человека.',
+        period: 'Спринт 14 · 17 июня',
+        funnel: 'Воронка артефактов',
+        gates: 'Approval gates',
+        savings: 'Эффект автоматизации',
+        risks: 'Риски релиза',
+        kpis: [
+          { label: 'Готовность релиза', value: '86%', delta: '+12 п.п.', tone: 'good' },
+          { label: 'AI acceptance rate', value: '74%', delta: '31 из 42', tone: 'good' },
+          { label: 'Средний gate cycle', value: '18 мин', delta: '-42%', tone: 'good' },
+          { label: 'Открытые риски', value: '3', delta: '1 high', tone: 'warn' },
+        ],
+        flow: [
+          { label: 'Идеи', value: 18, width: 100 },
+          { label: 'Требования', value: 14, width: 78 },
+          { label: 'Архитектура', value: 11, width: 61 },
+          { label: 'QA ready', value: 9, width: 50 },
+          { label: 'Release ready', value: 7, width: 39 },
+        ],
+        gateRows: [
+          { name: 'Requirements', status: 'Approved', owner: 'PO', tone: 'good' },
+          { name: 'Architecture', status: 'Approved with notes', owner: 'Architect', tone: 'good' },
+          { name: 'Testing', status: 'Review today', owner: 'QA Lead', tone: 'warn' },
+          { name: 'Release', status: 'Blocked by risk', owner: 'DevOps', tone: 'bad' },
+        ],
+        impact: [
+          { label: 'Сэкономлено времени', value: '34 ч' },
+          { label: 'Ручных правок', value: '19%' },
+          { label: 'Повторных прогонов', value: '6' },
+        ],
+      }
+    : {
+        title: 'PDLC Metrics',
+        subtitle: 'Demo snapshot for steering review: speed, quality, gates, and human oversight.',
+        period: 'Sprint 14 · Jun 17',
+        funnel: 'Artifact funnel',
+        gates: 'Approval gates',
+        savings: 'Automation impact',
+        risks: 'Release risks',
+        kpis: [
+          { label: 'Release readiness', value: '86%', delta: '+12 pts', tone: 'good' },
+          { label: 'AI acceptance rate', value: '74%', delta: '31 of 42', tone: 'good' },
+          { label: 'Avg gate cycle', value: '18 min', delta: '-42%', tone: 'good' },
+          { label: 'Open risks', value: '3', delta: '1 high', tone: 'warn' },
+        ],
+        flow: [
+          { label: 'Ideas', value: 18, width: 100 },
+          { label: 'Requirements', value: 14, width: 78 },
+          { label: 'Architecture', value: 11, width: 61 },
+          { label: 'QA ready', value: 9, width: 50 },
+          { label: 'Release ready', value: 7, width: 39 },
+        ],
+        gateRows: [
+          { name: 'Requirements', status: 'Approved', owner: 'PO', tone: 'good' },
+          { name: 'Architecture', status: 'Approved with notes', owner: 'Architect', tone: 'good' },
+          { name: 'Testing', status: 'Review today', owner: 'QA Lead', tone: 'warn' },
+          { name: 'Release', status: 'Blocked by risk', owner: 'DevOps', tone: 'bad' },
+        ],
+        impact: [
+          { label: 'Time saved', value: '34 h' },
+          { label: 'Manual edits', value: '19%' },
+          { label: 'Re-runs', value: '6' },
+        ],
+      };
+
+  return (
+    <section className="workspace metrics-demo-panel">
+      <div className="stage-card">
+        <div className="metrics-demo-header">
+          <div>
+            <p className="eyebrow">{copy.period}</p>
+            <h2>{copy.title}</h2>
+            <p>{copy.subtitle}</p>
+          </div>
+          <span className="metrics-demo-badge">DEMO</span>
+        </div>
+
+        <div className="metrics-kpi-grid">
+          {copy.kpis.map((item) => (
+            <div className={`metrics-kpi-card ${item.tone}`} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.delta}</small>
+            </div>
+          ))}
+        </div>
+
+        <div className="metrics-section">
+          <h3>{copy.funnel}</h3>
+          <div className="metrics-funnel">
+            {copy.flow.map((item) => (
+              <div className="metrics-funnel-row" key={item.label}>
+                <span>{item.label}</span>
+                <div className="metrics-funnel-track">
+                  <i style={{ width: `${item.width}%` }} />
+                </div>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="metrics-section">
+          <h3>{copy.gates}</h3>
+          <div className="metrics-gate-list">
+            {copy.gateRows.map((gate) => (
+              <div className={`metrics-gate-row ${gate.tone}`} key={gate.name}>
+                <span>{gate.name}</span>
+                <strong>{gate.status}</strong>
+                <small>{gate.owner}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="metrics-impact-row" aria-label={copy.savings}>
+          {copy.impact.map((item) => (
+            <div key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -794,7 +932,6 @@ function ArtifactPreview({ artifact, emptyText, onChange }) {
           <h3>{section.title}</h3>
           <textarea
             className="artifact-editor"
-            placeholder={emptyText}
             value={section.items ? section.items.join('\n') : section.body || ''}
             onChange={(event) => handleSectionChange(index, event.target.value, section.items ? 'items' : 'body')}
             rows={getSectionEditorRows(section)}
@@ -822,7 +959,6 @@ function App() {
   const [testingNotes, setTestingNotes] = useState('');
   const [reviewNotes, setReviewNotes] = useState('');
   const [releaseNotes, setReleaseNotes] = useState('');
-  const [metricsNotes, setMetricsNotes] = useState('');
   const [stageInputs, setStageInputs] = useState({});
   const [stageArtifacts, setStageArtifacts] = useState({});
   const [stageAnalysis, setStageAnalysis] = useState({});
@@ -854,7 +990,6 @@ function App() {
   const canGenerateNext = Boolean(nextStep && (activeInput.trim() || activeArtifact));
   const canConfirmNext = Boolean(nextStep && (nextArtifact || nextInput.trim()));
   const requirementSummary = requirementArtifact?.problem_statement || requirementArtifact?.user_story || '';
-  const metricsStatus = metricsNotes.trim() || releaseNotes.trim() ? t.workflow.status.ready : t.workflow.status.waiting;
   const activeSource = activeInput || activeArtifact?.sections?.map((section) => section.body || section.items?.join(' ')).filter(Boolean).join(' ') || requirementSummary;
   const uiText = locale === 'ru'
     ? {
@@ -1603,16 +1738,7 @@ function App() {
       </main>
 
       <aside className={`metrics-drawer ${metricsOpen ? 'open' : ''}`} aria-label={t.tabs.metrics}>
-        <WorkflowStagePanel
-          title={t.workflow.panels.metricsTitle}
-          description={t.workflow.panels.metricsText}
-          inputLabel={t.workflow.panels.metricsInput}
-          value={metricsNotes}
-          onChange={setMetricsNotes}
-          statusText={metricsStatus}
-          needsAttention={!metricsNotes.trim()}
-          upstreamSummary={releaseNotes || testingNotes || reviewNotes || buildNotes || requirementSummary}
-        />
+        <MetricsDemoPanel locale={locale} />
         <div className="stage-governance-panel">
           <LLMLimits labels={t.limits} />
         </div>
