@@ -352,7 +352,7 @@ function readStoredValue(key, fallback, allowed) {
   return allowed.includes(value) ? value : fallback;
 }
 
-const APP_VERSION = '0.1.7';
+const APP_VERSION = '0.1.12';
 const TRANSITION_SPEED_STEPS = [1.0, 1.5, 2.0, 2.5];
 const DEFAULT_TRANSITION_SPEED = TRANSITION_SPEED_STEPS[TRANSITION_SPEED_STEPS.length - 1];
 
@@ -967,6 +967,7 @@ function App() {
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [isNarrowScreen, setIsNarrowScreen] = useState(false);
   const touchStartRef = useRef(null);
+  const metricsDrawerRef = useRef(null);
 
   const t = useMemo(() => translations[locale], [locale]);
   const workflowSteps = useMemo(() => [
@@ -1046,6 +1047,26 @@ function App() {
   }, [transitionSpeed]);
 
   useEffect(() => {
+    if (!metricsOpen) {
+      return undefined;
+    }
+
+    const handleOutsideMetricsClick = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (metricsDrawerRef.current?.contains(target) || target.closest('.nav-metrics')) {
+        return;
+      }
+      setMetricsOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handleOutsideMetricsClick);
+    return () => document.removeEventListener('pointerdown', handleOutsideMetricsClick);
+  }, [metricsOpen]);
+
+  useEffect(() => {
     fetch('/health')
       .then((res) => {
         if (!res.ok) {
@@ -1089,6 +1110,7 @@ function App() {
   };
   const handleTabSelect = (stepId) => {
     setActiveTab(stepId);
+    setMetricsOpen(false);
     setExpandedArtifact(false);
     setIsAdvancing(false);
   };
@@ -1737,12 +1759,31 @@ function App() {
         </div>
       </main>
 
-      <aside className={`metrics-drawer ${metricsOpen ? 'open' : ''}`} aria-label={t.tabs.metrics}>
-        <MetricsDemoPanel locale={locale} />
-        <div className="stage-governance-panel">
-          <LLMLimits labels={t.limits} />
-        </div>
-      </aside>
+      <div
+        className={`metrics-overlay ${metricsOpen ? 'open' : ''}`}
+        onClick={() => setMetricsOpen(false)}
+        aria-hidden={!metricsOpen}
+      >
+        <aside
+          ref={metricsDrawerRef}
+          className={`metrics-drawer ${metricsOpen ? 'open' : ''}`}
+          aria-label={t.tabs.metrics}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="metrics-close"
+            aria-label={locale === 'ru' ? 'Закрыть метрики' : 'Close metrics'}
+            onClick={() => setMetricsOpen(false)}
+          >
+            &times;
+          </button>
+          <MetricsDemoPanel locale={locale} />
+          <div className="stage-governance-panel">
+            <LLMLimits labels={t.limits} />
+          </div>
+        </aside>
+      </div>
 
       <footer className="app-footer">
         <p>AI PDLC v{APP_VERSION}</p>

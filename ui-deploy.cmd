@@ -28,8 +28,4 @@ echo Deploying to !DEPLOY_USER!@!DEPLOY_HOST!:!DEPLOY_PATH!
 echo Source: !BUILD_DIR!\
 
 ssh-copy-remote --user=!DEPLOY_USER! --server=!DEPLOY_HOST! --local_path="!BUILD_DIR!\" --remote_path="!DEPLOY_PATH!" --copy
-
-
-rem scp -r ./.build/frontend/* !DEPLOY_USER!@!DEPLOY_HOST!:!DEPLOY_PATH!
-
-rem rsync -avz ./.build/frontend/ !DEPLOY_USER!@!DEPLOY_HOST!:!DEPLOY_PATH!
+if errorlevel 1 exit /b 1

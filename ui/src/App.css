@@ -571,9 +571,10 @@ input:focus-visible {
 }
 
 .nav-item.active {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
-  background: var(--accent-dim);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent), 0 0 14px color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 .nav-step-index {
@@ -639,8 +640,9 @@ input:focus-visible {
 
 .nav-metrics.active {
   border-color: var(--accent2);
-  background: color-mix(in srgb, var(--accent2) 16%, transparent);
+  background: color-mix(in srgb, var(--accent2) 14%, var(--surface));
   color: var(--accent2);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent2) 16%, transparent), 0 0 16px color-mix(in srgb, var(--accent2) 9%, transparent);
 }
 
 .nav-metrics-icon {
@@ -712,11 +714,56 @@ input:focus-visible {
   min-width: 0;
   flex: 0 0 calc(100% / var(--stage-count, 1));
   overflow: hidden;
-  padding-right: 8px;
+  padding: 0 8px 8px 0;
+}
+
+.stage-slide.active .stage-panel-card {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent),
+    0 14px 34px color-mix(in srgb, var(--accent) 7%, var(--shadow));
+}
+
+.stage-slide.active .stage-panel-card::before,
+.stage-slide.active .stage-panel-card::after {
+  opacity: 1;
+}
+
+.stage-slide.active .stage-panel-card .stage-agent-copy strong {
+  color: color-mix(in srgb, var(--accent) 86%, var(--text));
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .stage-panel-card {
+  position: relative;
   height: 100%;
+  isolation: isolate;
+  transition:
+    border-color var(--stage-transition, 820ms) cubic-bezier(0.18, 0.86, 0.24, 1),
+    box-shadow var(--stage-transition, 820ms) cubic-bezier(0.18, 0.86, 0.24, 1);
+}
+
+.stage-panel-card::before {
+  content: none;
+}
+
+.stage-panel-card::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  border-radius: calc(var(--radius) - 1px);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 36%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--stage-transition, 820ms) cubic-bezier(0.18, 0.86, 0.24, 1);
+}
+
+.stage-panel-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .stage-panel-body {
@@ -783,6 +830,12 @@ input:focus-visible {
 .next-stage-card.is-awaiting {
   background: color-mix(in srgb, var(--panel) 82%, #000 18%);
   opacity: 0.82;
+}
+
+.stage-slide.active .next-stage-card {
+  border-color: color-mix(in srgb, var(--border) 78%, var(--muted));
+  background: color-mix(in srgb, var(--panel) 84%, #000 16%);
+  opacity: 0.74;
 }
 
 .next-stage-card.is-awaiting textarea,
@@ -1249,27 +1302,79 @@ input:focus-visible {
   border-color: color-mix(in srgb, var(--warning) 44%, var(--border));
 }
 
-.metrics-drawer {
+.metrics-overlay {
   position: fixed;
-  top: 110px;
+  top: 86px;
   right: 0;
-  bottom: 24px;
+  bottom: 20px;
+  left: 0;
   z-index: 34;
+  display: block;
+  padding: 8px 8px 10px;
+  background: var(--bg);
+  backdrop-filter: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(16px);
+  transition:
+    opacity var(--stage-transition, 820ms) cubic-bezier(0.18, 0.86, 0.24, 1),
+    transform var(--stage-transition, 820ms) cubic-bezier(0.18, 0.86, 0.24, 1);
+}
+
+.metrics-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.metrics-drawer {
+  position: relative;
   display: grid;
-  width: 50vw;
-  min-width: 560px;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 14px;
-  padding: 14px;
-  border-left: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  box-shadow: -24px 0 54px var(--shadow);
-  transform: translateX(100%);
-  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(520px, 1.1fr);
+  gap: 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: none;
+  transform: scale(0.992);
+  transition: transform var(--stage-transition, 820ms) cubic-bezier(0.18, 0.86, 0.24, 1);
 }
 
 .metrics-drawer.open {
-  transform: translateX(0);
+  transform: scale(1);
+}
+
+.metrics-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--accent2) 24%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface2) 76%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.metrics-drawer .limits-panel .panel-heading {
+  padding-right: 42px;
+}
+
+.metrics-close:hover {
+  border-color: var(--accent2);
+  color: var(--accent2);
+  background: color-mix(in srgb, var(--accent2) 10%, var(--surface2));
 }
 
 .metrics-drawer .workflow-stage-panel,
@@ -1280,14 +1385,17 @@ input:focus-visible {
 .metrics-drawer .stage-card,
 .metrics-drawer .limits-panel {
   height: 100%;
-  box-shadow: none;
+  min-height: 0;
+  border-color: color-mix(in srgb, var(--accent2) 24%, var(--border));
+  background: color-mix(in srgb, var(--panel) 88%, var(--accent2) 12%);
+  box-shadow: 0 16px 38px var(--shadow);
 }
 
 .metrics-demo-panel .stage-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  overflow: auto;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 0.9fr) minmax(0, 1.05fr) auto;
+  gap: 12px;
+  overflow: hidden;
 }
 
 .metrics-demo-header {
@@ -1384,6 +1492,8 @@ input:focus-visible {
 
 .metrics-section {
   padding: 12px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .metrics-section h3 {
@@ -1400,6 +1510,8 @@ input:focus-visible {
 .metrics-gate-list {
   display: grid;
   gap: 8px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .metrics-funnel-row,
@@ -1436,7 +1548,7 @@ input:focus-visible {
 
 .metrics-gate-row {
   grid-template-columns: minmax(96px, 1fr) minmax(100px, 1fr) minmax(54px, 0.45fr);
-  min-height: 34px;
+  min-height: 30px;
   padding: 0 9px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   border-radius: var(--radius-sm);
@@ -2293,10 +2405,14 @@ input:focus-visible {
     overflow: auto;
   }
 
-  .metrics-drawer {
-    top: 110px;
-    width: min(100vw, 680px);
+  .metrics-overlay {
+    top: 86px;
+    right: 0;
+    left: 0;
     min-width: 0;
+  }
+
+  .metrics-drawer {
     grid-template-columns: 1fr;
     overflow: auto;
   }
@@ -2333,6 +2449,14 @@ input:focus-visible {
     padding: 6px;
   }
 
+  .metrics-overlay {
+    top: 86px;
+    right: 0;
+    bottom: 20px;
+    left: 0;
+    padding: 6px 6px 8px;
+  }
+
   .stage-carousel {
     touch-action: pan-x;
   }
@@ -2351,7 +2475,7 @@ input:focus-visible {
     min-height: 0;
     flex-basis: calc(100% / var(--stage-count, 1));
     overflow-y: auto;
-    padding-right: 0;
+    padding: 0 0 8px;
   }
 
   .form-grid,

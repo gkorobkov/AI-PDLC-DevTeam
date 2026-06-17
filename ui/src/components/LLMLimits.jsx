@@ -33,6 +33,23 @@ const MOCK_LIMITS = {
   timestamp: new Date().toISOString(),
 };
 
+function asDemoLimits(data = {}) {
+  return {
+    ...MOCK_LIMITS,
+    provider: data.provider || MOCK_LIMITS.provider,
+    model: data.model || MOCK_LIMITS.model,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function normalizeLimits(data) {
+  if (!data || data.supported !== true || typeof data.limit !== 'number') {
+    return asDemoLimits(data);
+  }
+
+  return data;
+}
+
 function formatValue(value, labels) {
   if (value === null || value === undefined || value === '') {
     return labels.notSet;
@@ -85,10 +102,10 @@ function LLMLimits({ labels }) {
 
     try {
       const response = await axios.get('/llm-limits');
-      setLimits(response.data);
+      setLimits(normalizeLimits(response.data));
     } catch (err) {
       setError(err.response?.data?.detail || err.message || labels.failed);
-      setLimits(MOCK_LIMITS);
+      setLimits(asDemoLimits());
     } finally {
       setLoading(false);
     }
@@ -127,7 +144,7 @@ function LLMLimits({ labels }) {
           </button>
         </div>
 
-        {error && limits?.demo && (
+        {limits?.demo && (
           <div className="demo-notice">
             <strong>{demoTitle}</strong>
             <span>{demoMessage}</span>
@@ -135,13 +152,6 @@ function LLMLimits({ labels }) {
         )}
         {error && !limits?.demo && <div className="error">{error}</div>}
         {loading && !limits && <div className="state-message">{labels.loading}</div>}
-
-        {limits && !limits.supported && (
-          <div className="empty-state aligned-left">
-            <h3>{limits.provider || labels.provider} {labels.connected}</h3>
-            <p>{limits.message}</p>
-          </div>
-        )}
 
         {limits?.supported && (
           <>
